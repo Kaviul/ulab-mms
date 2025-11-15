@@ -99,6 +99,7 @@ export default function CoursePage() {
     quizWeightage: '',
     assignmentWeightage: '',
   });
+  const [scalingTargets, setScalingTargets] = useState<{ [examId: string]: string }>({});
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -248,7 +249,19 @@ export default function CoursePage() {
   };
 
   const handleUpdateScalingTarget = async (examId: string, target: number) => {
+    if (isNaN(target) || target <= 0) {
+      alert('Please enter a valid scaling target value');
+      return;
+    }
+
+    const exam = exams.find(e => e._id === examId);
+    if (exam && target > exam.totalMarks) {
+      alert(`Scaling target cannot exceed total marks (${exam.totalMarks})`);
+      return;
+    }
+
     try {
+      // Update the scaling target in the database
       const response = await fetch(`/api/exams/${examId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -256,7 +269,37 @@ export default function CoursePage() {
       });
 
       if (response.ok) {
-        await fetchCourseData();
+        // If exam has a scaling method set, recalculate the scaling with new target
+        if (exam?.scalingMethod) {
+          const scalingResponse = await fetch('/api/scaling', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ examId, method: exam.scalingMethod, applyRound: false }),
+          });
+
+          if (scalingResponse.ok) {
+            await fetchCourseData();
+            // Clear the temporary input value
+            setScalingTargets(prev => {
+              const updated = { ...prev };
+              delete updated[examId];
+              return updated;
+            });
+            alert('Scaling target updated and marks recalculated successfully!');
+          } else {
+            alert('Scaling target updated but failed to recalculate marks');
+            await fetchCourseData();
+          }
+        } else {
+          await fetchCourseData();
+          // Clear the temporary input value
+          setScalingTargets(prev => {
+            const updated = { ...prev };
+            delete updated[examId];
+            return updated;
+          });
+          alert('Scaling target updated successfully!');
+        }
       } else {
         alert('Error updating scaling target');
       }
@@ -790,11 +833,40 @@ export default function CoursePage() {
                           min="0"
                           max={exam.totalMarks}
                           step="0.01"
-                          value={exam.scalingTarget || exam.totalMarks}
-                          onChange={(e) => handleUpdateScalingTarget(exam._id, parseFloat(e.target.value))}
+                          value={scalingTargets[exam._id] !== undefined ? scalingTargets[exam._id] : (exam.scalingTarget || exam.totalMarks)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setScalingTargets(prev => ({
+                              ...prev,
+                              [exam._id]: value
+                            }));
+                          }}
+                          onBlur={() => {
+                            // Validate on blur - if empty or invalid, prompt user
+                            const value = scalingTargets[exam._id];
+                            if (value === undefined || value === '' || value === null) {
+                              alert('Please enter a scaling target value');
+                              setScalingTargets(prev => ({
+                                ...prev,
+                                [exam._id]: (exam.scalingTarget || exam.totalMarks).toString()
+                              }));
+                            }
+                          }}
                           className="w-24 px-3 py-1.5 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 text-sm"
                           placeholder={exam.totalMarks.toString()}
                         />
+                        <button
+                          onClick={() => {
+                            const value = scalingTargets[exam._id];
+                            const target = value !== undefined ? parseFloat(value) : (exam.scalingTarget || exam.totalMarks);
+                            handleUpdateScalingTarget(exam._id, target);
+                          }}
+                          disabled={!scalingTargets[exam._id] || scalingTargets[exam._id] === (exam.scalingTarget || exam.totalMarks).toString()}
+                          className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-all shadow-lg flex items-center gap-1"
+                          title="Apply scaling target and recalculate"
+                        >
+                          ✓ Apply
+                        </button>
                         <span className="text-xs text-gray-500">
                           (Max: {exam.totalMarks})
                         </span>
