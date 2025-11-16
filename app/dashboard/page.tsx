@@ -21,6 +21,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -47,6 +48,33 @@ export default function Dashboard() {
       fetchCourses();
     }
   }, [status]);
+
+  useEffect(() => {
+    // Load theme from localStorage
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+
+    // Listen for storage changes and custom events
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'theme') {
+        setTheme((e.newValue as 'light' | 'dark') || 'dark');
+      }
+    };
+
+    const handleThemeChange = (e: CustomEvent) => {
+      setTheme(e.detail.theme);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('themeChange' as any, handleThemeChange as any);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('themeChange' as any, handleThemeChange as any);
+    };
+  }, []);
 
   const fetchCourses = async () => {
     try {
@@ -198,16 +226,28 @@ export default function Dashboard() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center">
-        <div className="text-gray-400 text-lg">Loading...</div>
+      <div className={`min-h-screen flex items-center justify-center transition-colors ${
+        theme === 'dark' 
+          ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900' 
+          : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
+      }`}>
+        <div className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900">
+    <div className={`min-h-screen transition-colors ${
+      theme === 'dark' 
+        ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900' 
+        : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
+    }`}>
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 backdrop-blur-md bg-gray-900/80 border-b border-gray-700">
+      <nav className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors ${
+        theme === 'dark'
+          ? 'bg-gray-900/80 border-gray-700'
+          : 'bg-white/80 border-gray-300'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -222,7 +262,7 @@ export default function Dashboard() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                   Marks Management System
                 </h1>
-                <p className="text-xs text-gray-400">
+                <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
                   Welcome, {session?.user?.name}
                 </p>
               </div>
@@ -231,7 +271,11 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <Link
                 href="/settings"
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all font-medium text-sm"
+                className={`px-4 py-2 rounded-lg transition-all font-medium text-sm ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
+                }`}
               >
                 ⚙️ Settings
               </Link>
@@ -250,10 +294,10 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-gray-100 mb-2">
+            <h2 className={`text-3xl font-bold mb-2 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
               My Courses
             </h2>
-            <p className="text-gray-400">
+            <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}>
               Manage your courses and student marks
             </p>
           </div>
@@ -275,14 +319,20 @@ export default function Dashboard() {
 
         {/* Courses Grid */}
         {courses.length === 0 ? (
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl shadow-2xl border border-gray-700/50 p-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-blue-900/30 flex items-center justify-center mx-auto mb-4">
+          <div className={`rounded-xl shadow-2xl border p-12 text-center transition-colors ${
+            theme === 'dark'
+              ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50'
+              : 'bg-white border-gray-300'
+          }`}>
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-100'
+            }`}>
               <span className="text-4xl">📚</span>
             </div>
-            <h3 className="text-lg font-medium text-gray-100 mb-2">
+            <h3 className={`text-lg font-medium mb-2 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
               No Courses Yet
             </h3>
-            <p className="text-gray-400 mb-6">
+            <p className={`mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
               Get started by creating your first course
             </p>
             <button
@@ -297,7 +347,11 @@ export default function Dashboard() {
             {courses.map((course) => (
               <div
                 key={course._id}
-                className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl shadow-xl border border-gray-700/50 p-6 hover:shadow-2xl hover:border-gray-600/50 transition-all group"
+                className={`rounded-xl shadow-xl border p-6 hover:shadow-2xl transition-all group ${
+                  theme === 'dark'
+                    ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50 hover:border-gray-600/50'
+                    : 'bg-white border-gray-300 hover:border-gray-400'
+                }`}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
@@ -325,7 +379,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <h3 className="text-xl font-bold text-gray-100 mb-2">
+                <h3 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>
                   {course.name}
                 </h3>
                 <p className="text-blue-400 font-medium mb-1">
@@ -336,11 +390,11 @@ export default function Dashboard() {
                 }`}>
                   {course.courseType} Course
                 </p>
-                <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
-                  <span className="px-2 py-1 bg-gray-700/50 rounded">
+                <div className="flex items-center gap-2 text-sm mb-4">
+                  <span className={`px-2 py-1 rounded ${theme === 'dark' ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-200 text-gray-800'}`}>
                     {course.semester}
                   </span>
-                  <span className="px-2 py-1 bg-gray-700/50 rounded">
+                  <span className={`px-2 py-1 rounded ${theme === 'dark' ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
                     {course.year}
                   </span>
                 </div>
@@ -360,8 +414,12 @@ export default function Dashboard() {
       {/* Add Course Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-2xl shadow-2xl max-w-md w-full border border-gray-700/50 p-6">
-            <h2 className="text-2xl font-bold text-gray-100 mb-6">
+          <div className={`rounded-2xl shadow-2xl max-w-md w-full border p-6 transition-colors ${
+            theme === 'dark'
+              ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50'
+              : 'bg-white border-gray-300'
+          }`}>
+            <h2 className={`text-2xl font-bold mb-6 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
               Add New Course
             </h2>
 

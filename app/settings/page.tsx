@@ -52,6 +52,9 @@ export default function SettingsPage() {
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     applyTheme(newTheme);
+    
+    // Dispatch custom event for same-tab updates
+    window.dispatchEvent(new CustomEvent('themeChange', { detail: { theme: newTheme } }));
   };
 
   const handleSaveDefaultWeightages = () => {
@@ -157,7 +160,7 @@ export default function SettingsPage() {
                 <h1 className={`text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent`}>
                   ⚙️ Settings
                 </h1>
-                <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}`}>
                   Manage your preferences
                 </p>
               </div>
@@ -193,7 +196,7 @@ export default function SettingsPage() {
             : 'bg-white border-gray-300'
         }`}>
           <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${
-            theme === 'dark' ? 'text-gray-100' : 'text-gray-900'
+            theme === 'dark' ? 'text-gray-100' : 'text-gray-800'
           }`}>
             <span className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></span>
             Appearance
@@ -204,7 +207,7 @@ export default function SettingsPage() {
               <div className={`font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'}`}>
                 Theme
               </div>
-              <div className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+              <div className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}`}>
                 Switch between light and dark mode
               </div>
             </div>

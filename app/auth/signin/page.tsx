@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -14,6 +14,34 @@ export default function SignIn() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.body.classList.remove('bg-gray-100');
+      document.body.classList.add('bg-gray-900');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('bg-gray-900');
+      document.body.classList.add('bg-gray-100');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +69,26 @@ export default function SignIn() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center p-4">
+    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors ${
+      theme === 'dark'
+        ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900'
+        : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
+    }`}>
       <div className="max-w-md w-full">
+        {/* Theme Toggle */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={toggleTheme}
+            className={`p-2 rounded-lg transition-all ${
+              theme === 'dark'
+                ? 'bg-gray-700 hover:bg-gray-600 text-yellow-300'
+                : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
+            }`}
+            title="Toggle theme"
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+        </div>
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
@@ -57,14 +103,18 @@ export default function SignIn() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-2">
             Marks Management System
           </h1>
-          <p className="text-gray-400 text-sm">
+          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}`}>
             University of Liberal Arts Bangladesh
           </p>
         </div>
 
         {/* Sign In Card */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-2xl shadow-2xl border border-gray-700/50 p-8">
-          <h2 className="text-2xl font-bold text-gray-100 mb-6">Sign In</h2>
+        <div className={`rounded-2xl shadow-2xl border p-8 transition-colors ${
+          theme === 'dark'
+            ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50'
+            : 'bg-white border-gray-300'
+        }`}>
+          <h2 className={`text-2xl font-bold mb-6 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>Sign In</h2>
 
           {error && (
             <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
@@ -74,7 +124,7 @@ export default function SignIn() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>
                 Email
               </label>
               <input
@@ -84,13 +134,17 @@ export default function SignIn() {
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
                 }
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500 transition-colors"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-gray-900 border-gray-600 text-gray-100 placeholder-gray-500'
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                }`}
                 placeholder="your.email@example.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>
                 Password
               </label>
               <input
@@ -100,7 +154,11 @@ export default function SignIn() {
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
                 }
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500 transition-colors"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-gray-900 border-gray-600 text-gray-100 placeholder-gray-500'
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                }`}
                 placeholder="Enter your password"
               />
             </div>
@@ -115,7 +173,7 @@ export default function SignIn() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-400 text-sm">
+            <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}`}>
               Don't have an account?{' '}
               <Link
                 href="/auth/signup"
@@ -131,10 +189,10 @@ export default function SignIn() {
         <div className="mt-6 text-center">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700"></div>
+              <div className={`w-full border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-300'}`}></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-900 text-gray-400">or</span>
+              <span className={`px-2 ${theme === 'dark' ? 'bg-gray-900 text-gray-400' : 'bg-gray-100 text-gray-700'}`}>or</span>
             </div>
           </div>
 

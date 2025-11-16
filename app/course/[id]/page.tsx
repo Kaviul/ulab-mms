@@ -64,6 +64,7 @@ export default function CoursePage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [marks, setMarks] = useState<Mark[]>([]);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   // Modal states
   const [showImportModal, setShowImportModal] = useState(false);
@@ -103,6 +104,31 @@ export default function CoursePage() {
   });
   const [scalingTargets, setScalingTargets] = useState<{ [examId: string]: string }>({});
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'theme') {
+        setTheme((e.newValue as 'light' | 'dark') || 'dark');
+      }
+    };
+
+    const handleThemeChange = (e: CustomEvent) => {
+      setTheme(e.detail.theme);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('themeChange' as any, handleThemeChange as any);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('themeChange' as any, handleThemeChange as any);
+    };
+  }, []);
 
   useEffect(() => {
     if (courseId) {
@@ -739,24 +765,40 @@ export default function CoursePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center">
-        <div className="text-gray-400 text-lg">Loading...</div>
+      <div className={`min-h-screen flex items-center justify-center transition-colors ${
+        theme === 'dark'
+          ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900'
+          : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
+      }`}>
+        <div className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Loading...</div>
       </div>
     );
   }
 
   if (!course) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center">
-        <div className="text-gray-400 text-lg">Course not found</div>
+      <div className={`min-h-screen flex items-center justify-center transition-colors ${
+        theme === 'dark'
+          ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900'
+          : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
+      }`}>
+        <div className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Course not found</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900">
+    <div className={`min-h-screen transition-colors ${
+      theme === 'dark'
+        ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900'
+        : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
+    }`}>
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 backdrop-blur-md bg-gray-900/80 border-b border-gray-700">
+      <nav className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors ${
+        theme === 'dark'
+          ? 'bg-gray-900/80 border-gray-700'
+          : 'bg-white/80 border-gray-300'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -773,7 +815,7 @@ export default function CoursePage() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent flex items-center gap-2">
                   {course?.courseType === 'Theory' ? '📖' : '🔬'} {course.name}
                 </h1>
-                <p className="text-xs text-gray-400">
+                <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}`}>
                   {course.code} • {course.semester} {course.year} • 
                   <span className={`ml-1 px-2 py-0.5 rounded text-xs font-medium ${
                     course?.courseType === 'Theory' 
@@ -789,13 +831,21 @@ export default function CoursePage() {
             <div className="flex items-center gap-3">
               <Link
                 href="/settings"
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all font-medium text-sm"
+                className={`px-4 py-2 rounded-lg transition-all font-medium text-sm ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
+                }`}
               >
                 ⚙️ Settings
               </Link>
               <Link
                 href="/dashboard"
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all font-medium text-sm"
+                className={`px-4 py-2 rounded-lg transition-all font-medium text-sm ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
+                }`}
               >
                 ← Dashboard
               </Link>
@@ -812,8 +862,12 @@ export default function CoursePage() {
 
       <div className="max-w-7xl mx-auto p-4 pt-8">
         {/* Control Panel */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl shadow-2xl p-6 mb-6 border border-gray-700/50">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-100">
+        <div className={`rounded-xl shadow-2xl p-6 mb-6 border transition-colors ${
+          theme === 'dark'
+            ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50'
+            : 'bg-white border-gray-300'
+        }`}>
+          <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>
             <span className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></span>
             Control Panel
           </h2>
@@ -881,28 +935,36 @@ export default function CoursePage() {
 
         {/* Exams List */}
         {exams.length > 0 && (
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl shadow-2xl p-6 mb-6 border border-gray-700/50">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-100">
+          <div className={`rounded-xl shadow-2xl p-6 mb-6 border transition-colors ${
+            theme === 'dark'
+              ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50'
+              : 'bg-white border-gray-300'
+          }`}>
+            <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>
               <span className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-cyan-500 rounded-full"></span>
               Exams & Scaling
             </h2>
             <div className="space-y-4">
               {exams.map(exam => (
-                <div key={exam._id} className="p-4 rounded-lg border bg-gray-900/50 border-gray-700/50 hover:border-gray-600 transition-all">
+                <div key={exam._id} className={`p-4 rounded-lg border transition-all ${
+                  theme === 'dark'
+                    ? 'bg-gray-900/50 border-gray-700/50 hover:border-gray-600'
+                    : 'bg-gray-50 border-gray-300 hover:border-gray-400'
+                }`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <div className="font-medium text-lg text-gray-100">{exam.displayName}</div>
+                        <div className={`font-medium text-lg ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>{exam.displayName}</div>
                         {exam.isRequired && (
                           <span className="px-2 py-0.5 bg-emerald-900/30 text-emerald-300 text-xs rounded font-medium">
                             Required
                           </span>
                         )}
                       </div>
-                      <div className="text-sm mt-1 text-gray-400">
-                        Total Marks: <span className="font-medium text-blue-400">{exam.totalMarks}</span> | 
+                      <div className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}`}>
+                        Total Marks: <span className="font-medium text-blue-600">{exam.totalMarks}</span> | 
                         {exam.examCategory === 'Quiz' || exam.examCategory === 'Assignment' ? (
-                          <span className="text-amber-400"> 
+                          <span className={theme === 'dark' ? 'text-amber-400' : 'text-amber-600'}> 
                             Weightage: Change from <button 
                               onClick={() => {
                                 setCourseSettingsData({
@@ -913,7 +975,7 @@ export default function CoursePage() {
                                 });
                                 setShowCourseSettings(true);
                               }}
-                              className="underline hover:text-amber-300 font-medium"
+                              className={`underline font-medium ${theme === 'dark' ? 'hover:text-amber-300' : 'hover:text-amber-700'}`}
                             >
                               Course Settings
                             </button>
@@ -1077,21 +1139,25 @@ export default function CoursePage() {
 
         {/* Students & Marks Table */}
         {students.length > 0 && (
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl shadow-2xl p-6 border border-gray-700/50">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-100">
+          <div className={`rounded-xl shadow-2xl p-6 border transition-colors ${
+            theme === 'dark'
+              ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50'
+              : 'bg-white border-gray-300'
+          }`}>
+            <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>
               <span className="w-1 h-6 bg-gradient-to-b from-cyan-500 to-blue-500 rounded-full"></span>
               Students & Marks
             </h2>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-700">
-                <thead className="bg-gray-900/50">
+              <table className={`min-w-full divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-300'}`}>
+                <thead className={theme === 'dark' ? 'bg-gray-900/50' : 'bg-gray-100'}>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-300">ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-300">Name</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>ID</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>Name</th>
                     {exams.map(exam => (
-                      <th key={exam._id} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-300">
+                      <th key={exam._id} className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>
                         <div>{exam.displayName}</div>
-                        <div className="text-[10px] font-normal mt-0.5 text-gray-500">Raw / Scaled / Rounded</div>
+                        <div className={`text-[10px] font-normal mt-0.5 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-700'}`}>Raw / Scaled / Rounded</div>
                       </th>
                     ))}
                     {hasQuizzes && (
@@ -1122,14 +1188,18 @@ export default function CoursePage() {
                         Weighted Total
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-300">Actions</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-700/50">
+                <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700/50' : 'divide-gray-300/50'}`}>
                   {students.map((student, idx) => (
-                    <tr key={student._id} className={`transition-colors hover:bg-gray-700/30 ${idx % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-900/20'}`}>
-                      <td className="px-4 py-3 text-sm font-medium text-blue-300">{student.studentId}</td>
-                      <td className="px-4 py-3 text-sm text-gray-200">
+                    <tr key={student._id} className={`transition-colors ${
+                      theme === 'dark'
+                        ? `hover:bg-gray-700/30 ${idx % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-900/20'}`
+                        : `hover:bg-gray-100 ${idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`
+                    }`}>
+                      <td className="px-4 py-3 text-sm font-medium text-blue-400">{student.studentId}</td>
+                      <td className={`px-4 py-3 text-sm ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'}`}>
                         <button
                           onClick={() => {
                             setSelectedStudent(student);
@@ -1143,31 +1213,43 @@ export default function CoursePage() {
                       {exams.map(exam => {
                         const mark = getMark(student._id, exam._id);
                         return (
-                          <td key={exam._id} className="px-4 py-3 text-sm text-gray-300">
+                          <td key={exam._id} className={`px-4 py-3 text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>
                             <div className="flex items-center gap-2">
                               <div className="flex-1">
                                 {mark ? (
                                   <div className="flex flex-col gap-1">
-                                    <span className="px-2 py-1 rounded font-medium text-xs bg-blue-900/30 text-blue-300">
+                                    <span className={`px-2 py-1 rounded font-medium text-xs ${
+                                      theme === 'dark'
+                                        ? 'bg-blue-900/30 text-blue-300'
+                                        : 'bg-blue-100 text-blue-700'
+                                    }`}>
                                       Raw: {mark.rawMark}
                                     </span>
                                     {mark.scaledMark !== undefined && mark.scaledMark !== null ? (
-                                      <span className="px-2 py-1 rounded font-medium text-xs bg-emerald-900/30 text-emerald-300">
+                                      <span className={`px-2 py-1 rounded font-medium text-xs ${
+                                        theme === 'dark'
+                                          ? 'bg-emerald-900/30 text-emerald-300'
+                                          : 'bg-emerald-100 text-emerald-700'
+                                      }`}>
                                         Scaled: {mark.scaledMark}
                                       </span>
                                     ) : (
-                                      <span className="text-xs italic text-gray-600">Not scaled</span>
+                                      <span className={`text-xs italic ${theme === 'dark' ? 'text-gray-600' : 'text-gray-700'}`}>Not scaled</span>
                                     )}
                                     {mark.roundedMark !== undefined && mark.roundedMark !== null ? (
-                                      <span className="px-2 py-1 rounded font-medium text-xs bg-purple-900/30 text-purple-300">
+                                      <span className={`px-2 py-1 rounded font-medium text-xs ${
+                                        theme === 'dark'
+                                          ? 'bg-purple-900/30 text-purple-300'
+                                          : 'bg-purple-100 text-purple-700'
+                                      }`}>
                                         Rounded: {mark.roundedMark}
                                       </span>
                                     ) : mark.scaledMark !== undefined && mark.scaledMark !== null ? (
-                                      <span className="text-xs italic text-gray-600">Not rounded</span>
+                                      <span className={`text-xs italic ${theme === 'dark' ? 'text-gray-600' : 'text-gray-700'}`}>Not rounded</span>
                                     ) : null}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-600">-</span>
+                                  <span className={theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}>-</span>
                                 )}
                               </div>
                               <button

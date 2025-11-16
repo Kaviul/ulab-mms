@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -71,6 +71,34 @@ export default function StudentCheckMarks() {
   const [searched, setSearched] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
   const [showCourseModal, setShowCourseModal] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.body.classList.remove('bg-gray-100');
+      document.body.classList.add('bg-gray-900');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('bg-gray-900');
+      document.body.classList.add('bg-gray-100');
+    }
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,9 +299,17 @@ export default function StudentCheckMarks() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900">
+    <div className={`min-h-screen transition-colors ${
+      theme === 'dark'
+        ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900'
+        : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
+    }`}>
       {/* Header */}
-      <nav className="sticky top-0 z-50 backdrop-blur-md bg-gray-900/80 border-b border-gray-700">
+      <nav className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors ${
+        theme === 'dark'
+          ? 'bg-gray-900/80 border-gray-700'
+          : 'bg-white/80 border-gray-300'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -288,18 +324,35 @@ export default function StudentCheckMarks() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                   📊 Check Your Marks
                 </h1>
-                <p className="text-xs text-gray-400">
+                <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}`}>
                   Student Self-Service Portal
                 </p>
               </div>
             </div>
 
-            <Link
-              href="/auth/signin"
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all font-medium text-sm"
-            >
-              ← Back to Sign In
-            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={toggleTheme}
+                className={`p-2 rounded-lg transition-all ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 hover:bg-gray-600 text-yellow-300'
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
+                }`}
+                title="Toggle theme"
+              >
+                {theme === 'dark' ? '☀️' : '🌙'}
+              </button>
+              <Link
+                href="/auth/signin"
+                className={`px-4 py-2 rounded-lg transition-all font-medium text-sm ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
+                }`}
+              >
+                ← Back to Sign In
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
