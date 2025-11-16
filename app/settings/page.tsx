@@ -11,8 +11,8 @@ export default function SettingsPage() {
   const router = useRouter();
   
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [defaultMidWeightage, setDefaultMidWeightage] = useState('30');
-  const [defaultFinalWeightage, setDefaultFinalWeightage] = useState('50');
+  const [defaultMidWeightage, setDefaultMidWeightage] = useState('25');
+  const [defaultFinalWeightage, setDefaultFinalWeightage] = useState('40');
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
