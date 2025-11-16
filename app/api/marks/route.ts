@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { studentId, examId, courseId, rawMark, coMarks } = await request.json();
+    const { studentId, examId, courseId, rawMark, coMarks, questionMarks } = await request.json();
 
     if (!studentId || !examId || !courseId || rawMark === undefined) {
       return NextResponse.json(
@@ -77,6 +77,36 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validate Question marks if provided
+    if (questionMarks && Array.isArray(questionMarks)) {
+      // Check if exam requires Question marks
+      if (exam.numberOfQuestions && exam.numberOfQuestions > 0) {
+        if (questionMarks.length !== exam.numberOfQuestions) {
+          return NextResponse.json(
+            { error: `Expected ${exam.numberOfQuestions} Question marks` },
+            { status: 400 }
+          );
+        }
+
+        // Validate Question marks sum equals raw mark
+        const questionMarksSum = questionMarks.reduce((sum: number, qm: number) => sum + qm, 0);
+        if (questionMarksSum !== rawMark) {
+          return NextResponse.json(
+            { error: `Question marks must sum to ${rawMark}. Current sum: ${questionMarksSum}` },
+            { status: 400 }
+          );
+        }
+
+        // Validate each Question mark is non-negative and integer
+        if (questionMarks.some((qm: number) => qm < 0 || !Number.isInteger(qm))) {
+          return NextResponse.json(
+            { error: 'Question marks must be non-negative integers' },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Create or update mark
     const markData: any = {
       studentId,
@@ -88,6 +118,10 @@ export async function POST(request: NextRequest) {
 
     if (coMarks && Array.isArray(coMarks) && coMarks.length > 0) {
       markData.coMarks = coMarks;
+    }
+
+    if (questionMarks && Array.isArray(questionMarks) && questionMarks.length > 0) {
+      markData.questionMarks = questionMarks;
     }
 
     const mark = await Mark.findOneAndUpdate(

@@ -24,6 +24,7 @@ interface Exam {
   scalingEnabled: boolean;
   isRequired: boolean;
   numberOfCOs?: number;
+  numberOfQuestions?: number;
   scalingMethod?: string;
   scalingTarget?: number;
   examCategory?: 'Quiz' | 'Assignment' | 'Project' | 'Attendance' | 'MainExam' | 'ClassPerformance' | 'Others';
@@ -80,6 +81,9 @@ export default function CoursePage() {
   const [selectedStudentForGrade, setSelectedStudentForGrade] = useState<Student | null>(null);
   const [showImportCourseModal, setShowImportCourseModal] = useState(false);
   const [importCourseFile, setImportCourseFile] = useState<File | null>(null);
+  const [exportingJSON, setExportingJSON] = useState(false);
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [importingCourse, setImportingCourse] = useState(false);
   
   const [csvInput, setCsvInput] = useState('');
   const [examFormData, setExamFormData] = useState({
@@ -87,12 +91,14 @@ export default function CoursePage() {
     totalMarks: '',
     weightage: '',
     numberOfCOs: '',
+    numberOfQuestions: '',
     examCategory: '',
   });
   const [examSettings, setExamSettings] = useState({
     displayName: '',
     weightage: '',
     numberOfCOs: '',
+    numberOfQuestions: '',
     totalMarks: '',
     examCategory: '',
   });
@@ -218,6 +224,11 @@ export default function CoursePage() {
         examData.numberOfCOs = parseInt(examFormData.numberOfCOs);
       }
 
+      // Add numberOfQuestions if provided
+      if (examFormData.numberOfQuestions) {
+        examData.numberOfQuestions = parseInt(examFormData.numberOfQuestions);
+      }
+
       const response = await fetch('/api/exams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -229,7 +240,7 @@ export default function CoursePage() {
       if (response.ok) {
         setExams([...exams, data.exam]);
         setShowExamModal(false);
-        setExamFormData({ displayName: '', totalMarks: '', weightage: '', numberOfCOs: '', examCategory: '' });
+        setExamFormData({ displayName: '', totalMarks: '', weightage: '', numberOfCOs: '', numberOfQuestions: '', examCategory: '' });
       } else {
         setError(data.error);
       }
@@ -346,6 +357,7 @@ export default function CoursePage() {
       if (examSettings.weightage) updateData.weightage = parseFloat(examSettings.weightage);
       if (examSettings.totalMarks) updateData.totalMarks = parseFloat(examSettings.totalMarks);
       if (examSettings.numberOfCOs) updateData.numberOfCOs = parseInt(examSettings.numberOfCOs);
+      if (examSettings.numberOfQuestions) updateData.numberOfQuestions = parseInt(examSettings.numberOfQuestions);
       if (examSettings.examCategory) updateData.examCategory = examSettings.examCategory;
 
       const response = await fetch(`/api/exams/${showExamSettings}`, {
@@ -357,7 +369,7 @@ export default function CoursePage() {
       if (response.ok) {
         await fetchCourseData();
         setShowExamSettings(null);
-        setExamSettings({ displayName: '', weightage: '', numberOfCOs: '', totalMarks: '', examCategory: '' });
+        setExamSettings({ displayName: '', weightage: '', numberOfCOs: '', numberOfQuestions: '', totalMarks: '', examCategory: '' });
         setError('');
       } else {
         const data = await response.json();
@@ -451,6 +463,7 @@ export default function CoursePage() {
   };
 
   const handleExportCourse = async () => {
+    setExportingJSON(true);
     try {
       const response = await fetch(`/api/courses/${courseId}/export?format=json`);
       
@@ -472,10 +485,13 @@ export default function CoursePage() {
     } catch (err) {
       console.error('Export error:', err);
       alert('Error exporting course');
+    } finally {
+      setExportingJSON(false);
     }
   };
 
   const handleExportCSV = async () => {
+    setExportingCSV(true);
     try {
       const response = await fetch(`/api/courses/${courseId}/export?format=csv`);
       
@@ -497,6 +513,8 @@ export default function CoursePage() {
     } catch (err) {
       console.error('Export error:', err);
       alert('Error exporting course');
+    } finally {
+      setExportingCSV(false);
     }
   };
 
@@ -506,6 +524,7 @@ export default function CoursePage() {
       return;
     }
 
+    setImportingCourse(true);
     try {
       const fileContent = await importCourseFile.text();
       const courseData = JSON.parse(fileContent);
@@ -528,6 +547,8 @@ export default function CoursePage() {
     } catch (err) {
       console.error('Import error:', err);
       alert('Error importing course. Please ensure the file is valid.');
+    } finally {
+      setImportingCourse(false);
     }
   };
 
@@ -912,17 +933,37 @@ export default function CoursePage() {
             </button>
             <button
               onClick={handleExportCourse}
-              disabled={!course}
-              className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white rounded-lg hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!course || exportingJSON}
+              className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white rounded-lg hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              📤 Export JSON
+              {exportingJSON ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Exporting...
+                </>
+              ) : (
+                <>📤 Export JSON</>
+              )}
             </button>
             <button
               onClick={handleExportCSV}
-              disabled={!course}
-              className="px-5 py-2.5 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!course || exportingCSV}
+              className="px-5 py-2.5 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              📊 Export CSV
+              {exportingCSV ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Exporting...
+                </>
+              ) : (
+                <>📊 Export CSV</>
+              )}
             </button>
             <button
               onClick={() => setShowImportCourseModal(true)}
@@ -1006,6 +1047,7 @@ export default function CoursePage() {
                             weightage: exam.weightage.toString(),
                             totalMarks: exam.totalMarks.toString(),
                             numberOfCOs: exam.numberOfCOs?.toString() || '',
+                            numberOfQuestions: exam.numberOfQuestions?.toString() || '',
                             examCategory: exam.examCategory || '',
                           });
                         }}
@@ -1572,6 +1614,20 @@ export default function CoursePage() {
                 </div>
               )}
 
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Number of Questions (Optional)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={examFormData.numberOfQuestions}
+                  onChange={(e) => setExamFormData({ ...examFormData, numberOfQuestions: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
+                  placeholder="e.g., 5 (leave blank if not needed)"
+                />
+                <p className="text-xs text-gray-500 mt-1">For question-wise marks breakdown (usually for MainExam category)</p>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -1714,6 +1770,20 @@ export default function CoursePage() {
                   <p className="text-xs text-gray-500 mt-1">For CO-wise marks breakdown</p>
                 </div>
               )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Number of Questions</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={examSettings.numberOfQuestions}
+                  onChange={(e) => setExamSettings({ ...examSettings, numberOfQuestions: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
+                  placeholder="e.g., 5 (leave blank if not needed)"
+                />
+                <p className="text-xs text-gray-500 mt-1">For question-wise marks breakdown (usually for MainExam category)</p>
+              </div>
 
               <div className="flex gap-3 pt-4">
                 <button
@@ -2060,10 +2130,20 @@ export default function CoursePage() {
               </button>
               <button
                 onClick={handleImportCourse}
-                disabled={!importCourseFile}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!importCourseFile || importingCourse}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Import Data
+                {importingCourse ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Importing...
+                  </>
+                ) : (
+                  'Import Data'
+                )}
               </button>
             </div>
 

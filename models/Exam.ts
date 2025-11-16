@@ -11,6 +11,7 @@ export interface IExam extends Document {
   examType: 'midterm' | 'final' | 'labFinal' | 'oel' | 'custom'; // Type of exam
   examCategory?: 'Quiz' | 'Assignment' | 'Project' | 'Attendance' | 'MainExam' | 'ClassPerformance' | 'Others'; // Category for grouping
   numberOfCOs?: number; // For Theory Mid/Final only
+  numberOfQuestions?: number; // For question-wise marking
   courseId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -66,6 +67,11 @@ const ExamSchema: Schema = new Schema(
     numberOfCOs: {
       type: Number,
       min: [0, 'Number of COs cannot be negative'],
+      default: null,
+    },
+    numberOfQuestions: {
+      type: Number,
+      min: [0, 'Number of Questions cannot be negative'],
       default: null,
     },
     courseId: {

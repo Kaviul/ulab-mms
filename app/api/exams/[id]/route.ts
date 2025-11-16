@@ -18,7 +18,7 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const { displayName, weightage, scalingEnabled, scalingTarget, numberOfCOs, totalMarks, examCategory } =
+    const { displayName, weightage, scalingEnabled, scalingTarget, numberOfCOs, numberOfQuestions, totalMarks, examCategory } =
       await request.json();
 
     await dbConnect();
@@ -95,6 +95,17 @@ export async function PUT(
         );
       }
       updateData.numberOfCOs = numberOfCOs;
+    }
+
+    // Update numberOfQuestions if provided
+    if (numberOfQuestions !== undefined) {
+      if (numberOfQuestions < 0 || numberOfQuestions > 50) {
+        return NextResponse.json(
+          { error: 'Number of Questions must be between 0 and 50' },
+          { status: 400 }
+        );
+      }
+      updateData.numberOfQuestions = numberOfQuestions;
     }
 
     // Update totalMarks if provided

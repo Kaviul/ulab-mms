@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { courseId, displayName, totalMarks, weightage, numberOfCOs, examCategory } =
+    const { courseId, displayName, totalMarks, weightage, numberOfCOs, numberOfQuestions, examCategory } =
       await request.json();
 
     // Validation
@@ -91,6 +91,17 @@ export async function POST(request: NextRequest) {
         );
       }
       examData.numberOfCOs = numberOfCOs;
+    }
+
+    // Add numberOfQuestions if provided
+    if (numberOfQuestions !== undefined && numberOfQuestions > 0) {
+      if (numberOfQuestions > 50) {
+        return NextResponse.json(
+          { error: 'Number of Questions must be between 1 and 50' },
+          { status: 400 }
+        );
+      }
+      examData.numberOfQuestions = numberOfQuestions;
     }
 
     const exam = await Exam.create(examData);

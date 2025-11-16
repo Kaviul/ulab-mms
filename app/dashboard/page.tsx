@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -192,6 +193,7 @@ export default function Dashboard() {
       return;
     }
 
+    setImporting(true);
     try {
       const fileContent = await importFile.text();
       const courseData = JSON.parse(fileContent);
@@ -221,6 +223,8 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Import error:', err);
       alert('Error importing course. Please ensure the file is a valid JSON backup.');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -714,10 +718,20 @@ export default function Dashboard() {
               </button>
               <button
                 onClick={handleImportCourse}
-                disabled={!importFile}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!importFile || importing}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Import Course
+                {importing ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Importing...
+                  </>
+                ) : (
+                  'Import Course'
+                )}
               </button>
             </div>
           </div>

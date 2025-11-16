@@ -14,6 +14,7 @@ interface Exam {
   examType: 'midterm' | 'final' | 'labFinal' | 'oel' | 'custom';
   totalMarks: number;
   numberOfCOs?: number;
+  numberOfQuestions?: number;
 }
 
 interface Mark {
@@ -22,6 +23,7 @@ interface Mark {
   examId: string;
   rawMark: number;
   coMarks?: number[];
+  questionMarks?: number[];
 }
 
 interface AddMarkModalProps {
@@ -52,6 +54,7 @@ export default function AddMarkModal({
   const [selectedStudentId, setSelectedStudentId] = useState<string>(initialStudentId || '');
   const [rawMark, setRawMark] = useState('');
   const [coMarks, setCoMarks] = useState<string[]>([]);
+  const [questionMarks, setQuestionMarks] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [currentStep, setCurrentStep] = useState<'exam' | 'student' | 'marks'>('exam');
@@ -61,10 +64,12 @@ export default function AddMarkModal({
   const studentSearchRef = useRef<HTMLInputElement>(null);
   const rawMarkRef = useRef<HTMLInputElement>(null);
   const coMarkRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const questionMarkRefs = useRef<(HTMLInputElement | null)[]>([]);
   const saveButtonRef = useRef<HTMLButtonElement>(null);
 
   const selectedExam = exams.find(e => e._id === selectedExamId);
   const numberOfCOs = selectedExam?.numberOfCOs || 0;
+  const numberOfQuestions = selectedExam?.numberOfQuestions || 0;
 
   // Filter students based on search
   const filteredStudents = students.filter(s => 
@@ -84,7 +89,12 @@ export default function AddMarkModal({
     } else {
       setCoMarks([]);
     }
-  }, [selectedExamId, numberOfCOs]);
+    if (selectedExamId && numberOfQuestions > 0) {
+      setQuestionMarks(new Array(numberOfQuestions).fill(''));
+    } else {
+      setQuestionMarks([]);
+    }
+  }, [selectedExamId, numberOfCOs, numberOfQuestions]);
 
   // Load existing marks when student is selected
   useEffect(() => {
@@ -98,15 +108,21 @@ export default function AddMarkModal({
         if (existingMark.coMarks && existingMark.coMarks.length > 0) {
           setCoMarks(existingMark.coMarks.map(m => m.toString()));
         }
+        if (existingMark.questionMarks && existingMark.questionMarks.length > 0) {
+          setQuestionMarks(existingMark.questionMarks.map(m => m.toString()));
+        }
       } else {
         setRawMark('');
         if (numberOfCOs > 0) {
           setCoMarks(new Array(numberOfCOs).fill(''));
         }
+        if (numberOfQuestions > 0) {
+          setQuestionMarks(new Array(numberOfQuestions).fill(''));
+        }
       }
       setCurrentStep('marks');
     }
-  }, [selectedStudentId, selectedExamId, marks, numberOfCOs]);
+  }, [selectedStudentId, selectedExamId, marks, numberOfCOs, numberOfQuestions]);
 
   // Focus management when step changes
   useEffect(() => {
@@ -135,6 +151,7 @@ export default function AddMarkModal({
       setSelectedStudentId('');
       setRawMark('');
       setCoMarks([]);
+      setQuestionMarks([]);
       setError('');
       setSuccess('');
       setFocusedCOIndex(-1);
@@ -196,6 +213,27 @@ export default function AddMarkModal({
       coMarksArray = coMarksNum;
     }
 
+    // Validate Question marks if applicable
+    let questionMarksArray: number[] | undefined = undefined;
+    if (numberOfQuestions > 0) {
+      const questionMarksNum = questionMarks.map(qm => parseInt(qm || '0'));
+      
+      // Check if all Question marks are valid integers
+      if (questionMarksNum.some(qm => isNaN(qm) || qm < 0)) {
+        setError('All Question marks must be valid non-negative integers');
+        return;
+      }
+
+      // Check if Question marks sum equals raw mark
+      const questionMarksSum = questionMarksNum.reduce((sum, qm) => sum + qm, 0);
+      if (questionMarksSum !== rawMarkNum) {
+        setError(`Question marks must sum to ${rawMarkNum}. Current sum: ${questionMarksSum}`);
+        return;
+      }
+
+      questionMarksArray = questionMarksNum;
+    }
+
     // Save mark
     try {
       const response = await fetch('/api/marks', {
@@ -207,6 +245,7 @@ export default function AddMarkModal({
           examId: selectedExamId,
           rawMark: rawMarkNum,
           coMarks: coMarksArray,
+          questionMarks: questionMarksArray,
         }),
       });
 
@@ -223,6 +262,9 @@ export default function AddMarkModal({
           setRawMark('');
           if (numberOfCOs > 0) {
             setCoMarks(new Array(numberOfCOs).fill(''));
+          }
+          if (numberOfQuestions > 0) {
+            setQuestionMarks(new Array(numberOfQuestions).fill(''));
           }
           setSuccess('');
           setCurrentStep('student');
@@ -265,6 +307,8 @@ export default function AddMarkModal({
         if (numberOfCOs > 0 && coMarkRefs.current[0]) {
           coMarkRefs.current[0]?.focus();
           setFocusedCOIndex(0);
+        } else if (numberOfQuestions > 0 && questionMarkRefs.current[0]) {
+          questionMarkRefs.current[0]?.focus();
         } else if (saveButtonRef.current) {
           saveButtonRef.current.focus();
         }
@@ -284,14 +328,40 @@ export default function AddMarkModal({
         if (coIndex < numberOfCOs - 1 && coMarkRefs.current[coIndex + 1]) {
           coMarkRefs.current[coIndex + 1]?.focus();
           setFocusedCOIndex(coIndex + 1);
+        } else if (numberOfQuestions > 0 && questionMarkRefs.current[0]) {
+          questionMarkRefs.current[0]?.focus();
+          setFocusedCOIndex(-1);
         } else if (saveButtonRef.current) {
           saveButtonRef.current.focus();
           setFocusedCOIndex(-1);
         }
       }
+    } else if (currentField.startsWith('q-')) {
+      const qIndex = parseInt(currentField.split('-')[1]);
+      
+      if (isShiftTab) {
+        if (qIndex === 0) {
+          if (numberOfCOs > 0 && coMarkRefs.current[numberOfCOs - 1]) {
+            coMarkRefs.current[numberOfCOs - 1]?.focus();
+            setFocusedCOIndex(numberOfCOs - 1);
+          } else if (rawMarkRef.current) {
+            rawMarkRef.current.focus();
+          }
+        } else if (qIndex > 0 && questionMarkRefs.current[qIndex - 1]) {
+          questionMarkRefs.current[qIndex - 1]?.focus();
+        }
+      } else {
+        if (qIndex < numberOfQuestions - 1 && questionMarkRefs.current[qIndex + 1]) {
+          questionMarkRefs.current[qIndex + 1]?.focus();
+        } else if (saveButtonRef.current) {
+          saveButtonRef.current.focus();
+        }
+      }
     } else if (currentField === 'save') {
       if (isShiftTab) {
-        if (numberOfCOs > 0 && coMarkRefs.current[numberOfCOs - 1]) {
+        if (numberOfQuestions > 0 && questionMarkRefs.current[numberOfQuestions - 1]) {
+          questionMarkRefs.current[numberOfQuestions - 1]?.focus();
+        } else if (numberOfCOs > 0 && coMarkRefs.current[numberOfCOs - 1]) {
           coMarkRefs.current[numberOfCOs - 1]?.focus();
           setFocusedCOIndex(numberOfCOs - 1);
         } else if (rawMarkRef.current) {
@@ -343,6 +413,7 @@ export default function AddMarkModal({
                     <div className="text-sm text-gray-400 mt-1">
                       Total: {exam.totalMarks} marks
                       {exam.numberOfCOs && ` • ${exam.numberOfCOs} COs`}
+                      {exam.numberOfQuestions && ` • ${exam.numberOfQuestions} Questions`}
                     </div>
                     <div className="text-xs text-gray-500 mt-2">
                       {examMarks}/{students.length} students entered
@@ -365,6 +436,7 @@ export default function AddMarkModal({
                   <div className="text-sm text-gray-400 mt-1">
                     Total: {selectedExam.totalMarks} marks
                     {selectedExam.numberOfCOs && ` • ${selectedExam.numberOfCOs} COs`}
+                    {selectedExam.numberOfQuestions && ` • ${selectedExam.numberOfQuestions} Questions`}
                   </div>
                 </div>
                 <div className="text-right">
@@ -508,6 +580,44 @@ export default function AddMarkModal({
                     {rawMark && (
                       <div className="mt-2 text-sm text-gray-400">
                         Current sum: {coMarks.reduce((sum, cm) => sum + (parseFloat(cm) || 0), 0).toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Question Marks */}
+                {numberOfQuestions > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Question Marks (Must sum to {rawMark || '0'})
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {Array.from({ length: numberOfQuestions }, (_, i) => (
+                        <div key={i}>
+                          <label className="block text-xs text-gray-400 mb-1">Q{i + 1}</label>
+                          <input
+                            ref={(el) => {
+                              questionMarkRefs.current[i] = el;
+                            }}
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={questionMarks[i] || ''}
+                            onChange={(e) => {
+                              const newQuestionMarks = [...questionMarks];
+                              newQuestionMarks[i] = e.target.value;
+                              setQuestionMarks(newQuestionMarks);
+                            }}
+                            onKeyDown={(e) => handleKeyDown(e, `q-${i}`)}
+                            className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
+                            placeholder="0"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {rawMark && (
+                      <div className="mt-2 text-sm text-gray-400">
+                        Current sum: {questionMarks.reduce((sum, qm) => sum + (parseInt(qm) || 0), 0)}
                       </div>
                     )}
                   </div>

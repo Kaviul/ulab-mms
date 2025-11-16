@@ -72,6 +72,7 @@ export async function GET(
         isRequired: exam.isRequired,
         examCategory: exam.examCategory,
         numberOfCOs: exam.numberOfCOs,
+        numberOfQuestions: exam.numberOfQuestions,
       })),
       marks: marks.map(mark => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,6 +85,7 @@ export async function GET(
           examDisplayName: exam?.displayName,
           rawMark: mark.rawMark,
           coMarks: mark.coMarks,
+          questionMarks: mark.questionMarks,
           scaledMark: mark.scaledMark,
           roundedMark: mark.roundedMark,
         };
@@ -272,6 +274,20 @@ export async function GET(
           headers.push(`${exam.displayName} (Raw)`);
           headers.push(`${exam.displayName} (Scaled)`);
           headers.push(`${exam.displayName} (Rounded)`);
+          
+          // Add CO marks columns if exam has COs
+          if (exam.numberOfCOs && exam.numberOfCOs > 0) {
+            for (let i = 1; i <= exam.numberOfCOs; i++) {
+              headers.push(`${exam.displayName} CO${i}`);
+            }
+          }
+          
+          // Add Question marks columns if exam has Questions
+          if (exam.numberOfQuestions && exam.numberOfQuestions > 0) {
+            for (let i = 1; i <= exam.numberOfQuestions; i++) {
+              headers.push(`${exam.displayName} Q${i}`);
+            }
+          }
         }
       });
       
@@ -345,8 +361,48 @@ export async function GET(
               row.push(mark.rawMark ?? '-');
               row.push(mark.scaledMark ?? '-');
               row.push(mark.roundedMark ?? '-');
+              
+              // Add CO marks if exam has COs
+              if (exam.numberOfCOs && exam.numberOfCOs > 0) {
+                if (mark.coMarks && mark.coMarks.length > 0) {
+                  for (let i = 0; i < exam.numberOfCOs; i++) {
+                    row.push(mark.coMarks[i] ?? '-');
+                  }
+                } else {
+                  for (let i = 0; i < exam.numberOfCOs; i++) {
+                    row.push('-');
+                  }
+                }
+              }
+              
+              // Add Question marks if exam has Questions
+              if (exam.numberOfQuestions && exam.numberOfQuestions > 0) {
+                if (mark.questionMarks && mark.questionMarks.length > 0) {
+                  for (let i = 0; i < exam.numberOfQuestions; i++) {
+                    row.push(mark.questionMarks[i] ?? '-');
+                  }
+                } else {
+                  for (let i = 0; i < exam.numberOfQuestions; i++) {
+                    row.push('-');
+                  }
+                }
+              }
             } else {
               row.push('-', '-', '-');
+              
+              // Add empty CO marks if exam has COs
+              if (exam.numberOfCOs && exam.numberOfCOs > 0) {
+                for (let i = 0; i < exam.numberOfCOs; i++) {
+                  row.push('-');
+                }
+              }
+              
+              // Add empty Question marks if exam has Questions
+              if (exam.numberOfQuestions && exam.numberOfQuestions > 0) {
+                for (let i = 0; i < exam.numberOfQuestions; i++) {
+                  row.push('-');
+                }
+              }
             }
           }
         });

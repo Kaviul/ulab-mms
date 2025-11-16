@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
         isRequired: examData.isRequired,
         examCategory: examData.examCategory,
         numberOfCOs: examData.numberOfCOs,
+        numberOfQuestions: examData.numberOfQuestions,
         courseId,
         userId: session.user.id,
       });
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
           userId: session.user.id,
           rawMark: markData.rawMark,
           coMarks: markData.coMarks,
+          questionMarks: markData.questionMarks,
           scaledMark: markData.scaledMark,
           roundedMark: markData.roundedMark,
         });

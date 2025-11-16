@@ -80,6 +80,7 @@ export async function POST(
         isRequired: examData.isRequired,
         examCategory: examData.examCategory,
         numberOfCOs: examData.numberOfCOs,
+        numberOfQuestions: examData.numberOfQuestions,
         courseId,
         userId: session.user.id,
       });
@@ -98,8 +99,10 @@ export async function POST(
           courseId,
           rawMark: markData.rawMark,
           coMarks: markData.coMarks,
+          questionMarks: markData.questionMarks,
           scaledMark: markData.scaledMark,
           roundedMark: markData.roundedMark,
+          userId: session.user.id,
         });
       }
     }

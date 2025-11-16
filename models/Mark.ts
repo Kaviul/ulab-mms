@@ -7,6 +7,7 @@ export interface IMark extends Document {
   userId: mongoose.Types.ObjectId;
   rawMark: number;
   coMarks?: number[]; // Array of CO marks [CO1, CO2, CO3, ...]
+  questionMarks?: number[]; // Array of Question marks [Q1, Q2, Q3, ...]
   scaledMark?: number;
   roundedMark?: number;
   createdAt: Date;
@@ -41,6 +42,10 @@ const MarkSchema: Schema = new Schema(
       min: [0, 'Mark cannot be negative'],
     },
     coMarks: {
+      type: [Number],
+      default: null,
+    },
+    questionMarks: {
       type: [Number],
       default: null,
     },
