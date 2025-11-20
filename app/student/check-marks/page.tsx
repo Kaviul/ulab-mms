@@ -3,6 +3,14 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { 
+  calculateLetterGrade, 
+  getGradeDisplay,
+  getGradeColor,
+  getGradeBgColor,
+  DEFAULT_GRADING_SCALE,
+  decodeGradingScale 
+} from '@/app/utils/grading';
 
 interface Student {
   _id: string;
@@ -22,6 +30,7 @@ interface Course {
   quizWeightage?: number;
   assignmentAggregation?: 'average' | 'best';
   assignmentWeightage?: number;
+  gradingScale?: string;
 }
 
 interface Exam {
@@ -765,7 +774,7 @@ export default function StudentCheckMarks() {
                       
                       return (
                         <>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                             <div>
                               <div className="text-xs text-gray-400">Exams Taken</div>
                               <div className="text-xl font-bold text-blue-300">
@@ -790,6 +799,21 @@ export default function StudentCheckMarks() {
                                 {totalWeightage > 0 
                                   ? `${((gradeData.total / totalWeightage) * 100).toFixed(1)}%`
                                   : 'N/A'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-gray-400">Letter Grade</div>
+                              <div className="text-2xl font-bold">
+                                {totalWeightage > 0 ? (() => {
+                                  const percentage = (gradeData.total / totalWeightage) * 100;
+                                  const letterGrade = calculateLetterGrade(percentage, selectedCourse.course.gradingScale);
+                                  return (
+                                    <span className={`${getGradeColor(letterGrade.letter)}`}>
+                                      {letterGrade.letter}
+                                      {letterGrade.modifier === '1' ? '-' : letterGrade.modifier === '2' ? '+' : ''}
+                                    </span>
+                                  );
+                                })() : 'N/A'}
                               </div>
                             </div>
                           </div>

@@ -8,6 +8,17 @@ import Link from 'next/link';
 import { parseCSV } from '@/app/utils/csv';
 import AddMarkModal from '@/app/components/AddMarkModal';
 import StudentDetailModal from '@/app/components/StudentDetailModal';
+import { 
+  GradeThreshold, 
+  DEFAULT_GRADING_SCALE, 
+  decodeGradingScale, 
+  encodeGradingScale, 
+  calculateLetterGrade, 
+  validateGradingScale,
+  getGradeDisplay,
+  getGradeColor,
+  getGradeBgColor 
+} from '@/app/utils/grading';
 
 interface Student {
   _id: string;
@@ -52,6 +63,7 @@ interface Course {
   assignmentAggregation?: 'average' | 'best';
   quizWeightage?: number;
   assignmentWeightage?: number;
+  gradingScale?: string;
 }
 
 export default function CoursePage() {
@@ -84,6 +96,7 @@ export default function CoursePage() {
   const [exportingJSON, setExportingJSON] = useState(false);
   const [exportingCSV, setExportingCSV] = useState(false);
   const [importingCourse, setImportingCourse] = useState(false);
+  const [courseSettingsTab, setCourseSettingsTab] = useState<'aggregation' | 'grading'>('aggregation');
   
   const [csvInput, setCsvInput] = useState('');
   const [examFormData, setExamFormData] = useState({
@@ -107,6 +120,7 @@ export default function CoursePage() {
     assignmentAggregation: 'average' as 'average' | 'best',
     quizWeightage: '',
     assignmentWeightage: '',
+    gradingScale: DEFAULT_GRADING_SCALE,
   });
   const [scalingTargets, setScalingTargets] = useState<{ [examId: string]: string }>({});
   const [error, setError] = useState('');
@@ -431,9 +445,17 @@ export default function CoursePage() {
     setError('');
 
     try {
+      // Validate grading scale
+      const validationError = validateGradingScale(courseSettingsData.gradingScale);
+      if (validationError) {
+        setError(`Grading scale error: ${validationError}`);
+        return;
+      }
+
       const updateData: any = {
         quizAggregation: courseSettingsData.quizAggregation,
         assignmentAggregation: courseSettingsData.assignmentAggregation,
+        gradingScale: encodeGradingScale(courseSettingsData.gradingScale),
       };
 
       if (courseSettingsData.quizWeightage) {
@@ -924,6 +946,9 @@ export default function CoursePage() {
                   assignmentAggregation: course?.assignmentAggregation || 'average',
                   quizWeightage: course?.quizWeightage?.toString() || '',
                   assignmentWeightage: course?.assignmentWeightage?.toString() || '',
+                  gradingScale: course?.gradingScale 
+                    ? decodeGradingScale(course.gradingScale) 
+                    : DEFAULT_GRADING_SCALE,
                 });
                 setShowCourseSettings(true);
               }}
@@ -1013,6 +1038,9 @@ export default function CoursePage() {
                                   assignmentAggregation: course?.assignmentAggregation || 'average',
                                   quizWeightage: course?.quizWeightage?.toString() || '',
                                   assignmentWeightage: course?.assignmentWeightage?.toString() || '',
+                                  gradingScale: course?.gradingScale 
+                                    ? decodeGradingScale(course.gradingScale) 
+                                    : DEFAULT_GRADING_SCALE,
                                 });
                                 setShowCourseSettings(true);
                               }}
@@ -1230,6 +1258,14 @@ export default function CoursePage() {
                         Weighted Total
                       </div>
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider bg-gradient-to-r from-purple-900/20 to-violet-900/20 border-l-2 border-purple-500/50">
+                      <div className="flex items-center gap-1">
+                        <span>🏆 Letter Grade</span>
+                      </div>
+                      <div className="text-[10px] font-normal mt-0.5 text-purple-400">
+                        Based on %
+                      </div>
+                    </th>
                     <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>Actions</th>
                   </tr>
                 </thead>
@@ -1440,6 +1476,31 @@ export default function CoursePage() {
                               >
                                 ℹ️
                               </button>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-4 py-3 text-sm bg-gradient-to-r from-purple-900/10 to-violet-900/10 border-l-2 border-purple-500/30">
+                        {(() => {
+                          const gradeData = calculateFinalGrade(student._id);
+                          if (gradeData.breakdown.length === 0) {
+                            return <span className="text-gray-600">-</span>;
+                          }
+                          
+                          const letterGrade = calculateLetterGrade(gradeData.total, course?.gradingScale);
+                          
+                          if (!letterGrade) {
+                            return <span className="text-gray-600">-</span>;
+                          }
+                          
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className={`px-3 py-1.5 rounded-lg font-bold text-sm ${getGradeBgColor(letterGrade.letter)} ${getGradeColor(letterGrade.letter)} border ${letterGrade.letter === 'A' ? 'border-green-500/30' : letterGrade.letter === 'B' ? 'border-blue-500/30' : letterGrade.letter === 'C' ? 'border-yellow-500/30' : letterGrade.letter === 'D' ? 'border-orange-500/30' : 'border-red-500/30'}`}>
+                                {getGradeDisplay(letterGrade.letter, letterGrade.modifier)}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ({gradeData.total.toFixed(2)}%)
+                              </span>
                             </div>
                           );
                         })()}
@@ -1821,118 +1882,294 @@ export default function CoursePage() {
 
       {/* Course Settings Modal */}
       {showCourseSettings && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-2xl shadow-2xl max-w-lg w-full border border-gray-700/50 p-6">
-            <h2 className="text-2xl font-bold text-gray-100 mb-6">⚙️ Course Settings</h2>
-            
-            {error && (
-              <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSaveCourseSettings} className="space-y-6">
-              {/* Quiz Settings */}
-              <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
-                <h3 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
-                  📝 Quiz Aggregation
-                </h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Aggregation Method</label>
-                    <select
-                      value={courseSettingsData.quizAggregation}
-                      onChange={(e) => setCourseSettingsData({ ...courseSettingsData, quizAggregation: e.target.value as 'average' | 'best' })}
-                      className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
-                    >
-                      <option value="average">Average of all quizzes</option>
-                      <option value="best">Best quiz score</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">How to calculate the aggregated Quiz column</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Quiz Weightage (%)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={courseSettingsData.quizWeightage}
-                      onChange={(e) => setCourseSettingsData({ ...courseSettingsData, quizWeightage: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
-                      placeholder="e.g., 20"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Weightage for the aggregated Quiz column in final grade</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Assignment Settings */}
-              <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
-                <h3 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
-                  📋 Assignment Aggregation
-                </h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Aggregation Method</label>
-                    <select
-                      value={courseSettingsData.assignmentAggregation}
-                      onChange={(e) => setCourseSettingsData({ ...courseSettingsData, assignmentAggregation: e.target.value as 'average' | 'best' })}
-                      className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
-                    >
-                      <option value="average">Average of all assignments</option>
-                      <option value="best">Best assignment score</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">How to calculate the aggregated Assignment column</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Assignment Weightage (%)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={courseSettingsData.assignmentWeightage}
-                      onChange={(e) => setCourseSettingsData({ ...courseSettingsData, assignmentWeightage: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
-                      placeholder="e.g., 15"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Weightage for the aggregated Assignment column in final grade</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Info Box */}
-              <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
-                <p className="text-sm text-blue-300">
-                  💡 <strong>Note:</strong> Individual Quiz/Assignment exams don't need weightages. 
-                  The aggregated column will use the weightage you set here.
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100]">
+          <div className="h-full w-full bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900">
+            {/* Header */}
+            <div className="border-b border-gray-700/50 bg-gray-800/50 backdrop-blur-md">
+              <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-100 flex items-center gap-3">
+                  <span className="text-3xl">⚙️</span>
+                  <span>Course Settings</span>
+                </h2>
                 <button
-                  type="button"
                   onClick={() => {
                     setShowCourseSettings(false);
                     setError('');
+                    setCourseSettingsTab('aggregation');
                   }}
-                  className="flex-1 px-4 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-all font-medium"
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all font-medium"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-lg font-medium"
-                >
-                  Save Settings
+                  ✕ Close
                 </button>
               </div>
-            </form>
+              
+              {/* Tabs */}
+              <div className="max-w-7xl mx-auto px-6">
+                <div className="flex gap-2 -mb-px">
+                  <button
+                    type="button"
+                    onClick={() => setCourseSettingsTab('aggregation')}
+                    className={`px-6 py-3 font-medium text-sm transition-all border-b-2 ${
+                      courseSettingsTab === 'aggregation'
+                        ? 'border-blue-500 text-blue-400 bg-gray-800/50'
+                        : 'border-transparent text-gray-400 hover:text-gray-300 hover:bg-gray-800/30'
+                    }`}
+                  >
+                    📊 Quiz & Assignment Settings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCourseSettingsTab('grading')}
+                    className={`px-6 py-3 font-medium text-sm transition-all border-b-2 ${
+                      courseSettingsTab === 'grading'
+                        ? 'border-purple-500 text-purple-400 bg-gray-800/50'
+                        : 'border-transparent text-gray-400 hover:text-gray-300 hover:bg-gray-800/30'
+                    }`}
+                  >
+                    🏆 Grading Scale
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="max-w-7xl mx-auto px-6 py-8 h-[calc(100vh-180px)] overflow-y-auto">
+              {error && (
+                <div className="mb-6 p-4 bg-red-900/30 border border-red-700 rounded-lg text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveCourseSettings} className="space-y-6">
+                {/* Quiz & Assignment Settings Tab */}
+                {courseSettingsTab === 'aggregation' && (
+                  <div className="space-y-6">
+                    {/* Quiz Settings */}
+                    <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/50">
+                      <h3 className="text-xl font-semibold text-gray-100 mb-6 flex items-center gap-2">
+                        📝 Quiz Aggregation
+                      </h3>
+                      
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">Aggregation Method</label>
+                          <select
+                            value={courseSettingsData.quizAggregation}
+                            onChange={(e) => setCourseSettingsData({ ...courseSettingsData, quizAggregation: e.target.value as 'average' | 'best' })}
+                            className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
+                          >
+                            <option value="average">Average of all quizzes</option>
+                            <option value="best">Best quiz score</option>
+                          </select>
+                          <p className="text-xs text-gray-500 mt-1">How to calculate the aggregated Quiz column</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">Quiz Weightage (%)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={courseSettingsData.quizWeightage}
+                            onChange={(e) => setCourseSettingsData({ ...courseSettingsData, quizWeightage: e.target.value })}
+                            className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
+                            placeholder="e.g., 20"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Weightage for the aggregated Quiz column in final grade</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Assignment Settings */}
+                    <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/50">
+                      <h3 className="text-xl font-semibold text-gray-100 mb-6 flex items-center gap-2">
+                        📋 Assignment Aggregation
+                      </h3>
+                      
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">Aggregation Method</label>
+                          <select
+                            value={courseSettingsData.assignmentAggregation}
+                            onChange={(e) => setCourseSettingsData({ ...courseSettingsData, assignmentAggregation: e.target.value as 'average' | 'best' })}
+                            className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
+                          >
+                            <option value="average">Average of all assignments</option>
+                            <option value="best">Best assignment score</option>
+                          </select>
+                          <p className="text-xs text-gray-500 mt-1">How to calculate the aggregated Assignment column</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">Assignment Weightage (%)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={courseSettingsData.assignmentWeightage}
+                            onChange={(e) => setCourseSettingsData({ ...courseSettingsData, assignmentWeightage: e.target.value })}
+                            className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
+                            placeholder="e.g., 15"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Weightage for the aggregated Assignment column in final grade</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Info Box */}
+                    <div className="p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+                      <p className="text-sm text-blue-300">
+                        💡 <strong>Note:</strong> Individual Quiz/Assignment exams don't need weightages. 
+                        The aggregated column will use the weightage you set here.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grading Scale Tab */}
+                {courseSettingsTab === 'grading' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-2xl font-semibold text-gray-100 flex items-center gap-3">
+                        <span className="text-3xl">📊</span>
+                        <span>Grading Scale Management</span>
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCourseSettingsData({ ...courseSettingsData, gradingScale: DEFAULT_GRADING_SCALE });
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 text-white rounded-lg text-sm font-medium transition-all shadow-lg flex items-center gap-2"
+                      >
+                        🔄 Reset to Default
+                      </button>
+                    </div>
+
+                    <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="text-left py-2 px-3 text-gray-300 font-semibold">Grade</th>
+                          <th className="text-left py-2 px-3 text-gray-300 font-semibold">Minimum %</th>
+                          <th className="text-left py-2 px-3 text-gray-300 font-semibold">Range Preview</th>
+                          <th className="text-right py-2 px-3 text-gray-300 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {courseSettingsData.gradingScale
+                          .sort((a, b) => b.threshold - a.threshold)
+                          .map((grade, index) => {
+                            const nextGrade = courseSettingsData.gradingScale
+                              .sort((a, b) => b.threshold - a.threshold)[index + 1];
+                            const upperBound = nextGrade ? nextGrade.threshold - 0.01 : 100;
+                            
+                            return (
+                              <tr key={index} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                                <td className="py-2 px-3">
+                                  <span className={`inline-block px-2 py-1 rounded font-semibold text-sm ${getGradeBgColor(grade.letter)} ${getGradeColor(grade.letter)}`}>
+                                    {getGradeDisplay(grade.letter, grade.modifier)}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value={grade.threshold}
+                                    onChange={(e) => {
+                                      const newThreshold = parseFloat(e.target.value);
+                                      if (!isNaN(newThreshold)) {
+                                        const updated = [...courseSettingsData.gradingScale];
+                                        updated[courseSettingsData.gradingScale.indexOf(grade)] = {
+                                          ...grade,
+                                          threshold: newThreshold
+                                        };
+                                        setCourseSettingsData({ ...courseSettingsData, gradingScale: updated });
+                                      }
+                                    }}
+                                    className="w-24 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  />
+                                </td>
+                                <td className="py-2 px-3 text-gray-400">
+                                  {grade.threshold.toFixed(2)}% - {upperBound.toFixed(2)}%
+                                </td>
+                                <td className="py-2 px-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = courseSettingsData.gradingScale.filter(g => g !== grade);
+                                      setCourseSettingsData({ ...courseSettingsData, gradingScale: updated });
+                                    }}
+                                    className="px-2 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-300 rounded text-xs transition-all"
+                                  >
+                                    🗑️ Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                      <div className="mt-4 pt-4 border-t border-gray-700">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newGrade: GradeThreshold = {
+                              threshold: 0,
+                              letter: 'F',
+                              modifier: '0'
+                            };
+                            setCourseSettingsData({ 
+                              ...courseSettingsData, 
+                              gradingScale: [...courseSettingsData.gradingScale, newGrade].sort((a, b) => a.threshold - b.threshold)
+                            });
+                          }}
+                          className="px-4 py-2 bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-300 rounded-lg font-medium transition-all flex items-center gap-2"
+                        >
+                          ➕ Add Grade Threshold
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-amber-900/20 border border-amber-700/50 rounded-lg">
+                      <p className="text-sm text-amber-300">
+                        ⚠️ <strong>Important:</strong> Grade thresholds define the minimum percentage needed for each letter grade. 
+                        Ensure there are no overlaps or gaps between grades. The system validates automatically when you save.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons - Fixed at bottom */}
+                <div className="sticky bottom-0 bg-gray-900/95 backdrop-blur-md border-t border-gray-700/50 px-6 py-4 -mx-6 -mb-8 mt-8">
+                  <div className="flex gap-4 max-w-7xl mx-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCourseSettings(false);
+                        setError('');
+                        setCourseSettingsTab('aggregation');
+                      }}
+                      className="flex-1 px-6 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-all font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-lg font-medium"
+                    >
+                      💾 Save All Settings
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

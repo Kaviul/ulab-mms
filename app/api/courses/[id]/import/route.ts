@@ -52,6 +52,8 @@ export async function POST(
       quizWeightage: importData.course.quizWeightage,
       assignmentAggregation: importData.course.assignmentAggregation,
       assignmentWeightage: importData.course.assignmentWeightage,
+      // If gradingScale is not present in import, keep existing (defaults are set in model)
+      ...(importData.course.gradingScale && { gradingScale: importData.course.gradingScale }),
     });
 
     // 3. Import students

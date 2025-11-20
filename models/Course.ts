@@ -11,6 +11,7 @@ export interface ICourse extends Document {
   quizWeightage: number; // Weightage for aggregated quiz column
   assignmentAggregation: 'average' | 'best'; // How to aggregate assignment marks
   assignmentWeightage: number; // Weightage for aggregated assignment column
+  gradingScale?: string; // Encoded grading scale (e.g., "0:F:0|50:D:0|55:C:1|...")
   userId: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -69,6 +70,10 @@ const CourseSchema: Schema = new Schema(
       default: 0,
       min: [0, 'Weightage cannot be negative'],
       max: [100, 'Weightage cannot exceed 100'],
+    },
+    gradingScale: {
+      type: String,
+      default: '0:F:0|50:D:0|55:C:1|60:C:2|65:B:1|70:B:0|75:B:2|80:A:1|85:A:0|95:A:2',
     },
     userId: {
       type: Schema.Types.ObjectId,
