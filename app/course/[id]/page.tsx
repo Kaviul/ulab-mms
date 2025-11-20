@@ -1259,37 +1259,49 @@ export default function CoursePage() {
                             <div className="flex items-center gap-2">
                               <div className="flex-1">
                                 {mark ? (
-                                  <div className="flex flex-col gap-1">
+                                  exam.scalingEnabled ? (
+                                    // Scaling is enabled - show Raw/Scaled/Rounded with labels
+                                    <div className="flex flex-col gap-1">
+                                      <span className={`px-2 py-1 rounded font-medium text-xs ${
+                                        theme === 'dark'
+                                          ? 'bg-blue-900/30 text-blue-300'
+                                          : 'bg-blue-100 text-blue-700'
+                                      }`}>
+                                        Raw: {mark.rawMark}
+                                      </span>
+                                      {mark.scaledMark !== undefined && mark.scaledMark !== null ? (
+                                        <span className={`px-2 py-1 rounded font-medium text-xs ${
+                                          theme === 'dark'
+                                            ? 'bg-emerald-900/30 text-emerald-300'
+                                            : 'bg-emerald-100 text-emerald-700'
+                                        }`}>
+                                          Scaled: {mark.scaledMark}
+                                        </span>
+                                      ) : (
+                                        <span className={`text-xs italic ${theme === 'dark' ? 'text-gray-600' : 'text-gray-700'}`}>Not scaled</span>
+                                      )}
+                                      {mark.roundedMark !== undefined && mark.roundedMark !== null ? (
+                                        <span className={`px-2 py-1 rounded font-medium text-xs ${
+                                          theme === 'dark'
+                                            ? 'bg-purple-900/30 text-purple-300'
+                                            : 'bg-purple-100 text-purple-700'
+                                        }`}>
+                                          Rounded: {mark.roundedMark}
+                                        </span>
+                                      ) : mark.scaledMark !== undefined && mark.scaledMark !== null ? (
+                                        <span className={`text-xs italic ${theme === 'dark' ? 'text-gray-600' : 'text-gray-700'}`}>Not rounded</span>
+                                      ) : null}
+                                    </div>
+                                  ) : (
+                                    // Scaling is not enabled - show only the raw mark without label
                                     <span className={`px-2 py-1 rounded font-medium text-xs ${
                                       theme === 'dark'
                                         ? 'bg-blue-900/30 text-blue-300'
                                         : 'bg-blue-100 text-blue-700'
                                     }`}>
-                                      Raw: {mark.rawMark}
+                                      {mark.rawMark}
                                     </span>
-                                    {mark.scaledMark !== undefined && mark.scaledMark !== null ? (
-                                      <span className={`px-2 py-1 rounded font-medium text-xs ${
-                                        theme === 'dark'
-                                          ? 'bg-emerald-900/30 text-emerald-300'
-                                          : 'bg-emerald-100 text-emerald-700'
-                                      }`}>
-                                        Scaled: {mark.scaledMark}
-                                      </span>
-                                    ) : (
-                                      <span className={`text-xs italic ${theme === 'dark' ? 'text-gray-600' : 'text-gray-700'}`}>Not scaled</span>
-                                    )}
-                                    {mark.roundedMark !== undefined && mark.roundedMark !== null ? (
-                                      <span className={`px-2 py-1 rounded font-medium text-xs ${
-                                        theme === 'dark'
-                                          ? 'bg-purple-900/30 text-purple-300'
-                                          : 'bg-purple-100 text-purple-700'
-                                      }`}>
-                                        Rounded: {mark.roundedMark}
-                                      </span>
-                                    ) : mark.scaledMark !== undefined && mark.scaledMark !== null ? (
-                                      <span className={`text-xs italic ${theme === 'dark' ? 'text-gray-600' : 'text-gray-700'}`}>Not rounded</span>
-                                    ) : null}
-                                  </div>
+                                  )
                                 ) : (
                                   <span className={theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}>-</span>
                                 )}
