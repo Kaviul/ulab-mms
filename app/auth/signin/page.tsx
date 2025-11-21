@@ -185,7 +185,7 @@ export default function SignIn() {
       theme === "dark" ? "text-gray-300" : "text-gray-800"
     }`}
   >
-    Password
+    User Password
   </label>
 
   <input
