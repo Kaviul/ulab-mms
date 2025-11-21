@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export default function SignUp() {
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
@@ -183,7 +184,7 @@ export default function SignUp() {
               />
             </div>
 
-            <div>
+            {/* <div>
               <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>
                 Password
               </label>
@@ -201,9 +202,82 @@ export default function SignUp() {
                 }`}
                 placeholder="At least 6 characters"
               />
-            </div>
+            </div> */}
 
-            <div>
+  <div className="relative">
+  <label
+    className={`block text-sm font-medium mb-2 ${
+      theme === "dark" ? "text-gray-300" : "text-gray-800"
+    }`}
+  >
+    Password
+  </label>
+
+  <input
+    required
+    value={formData.password}
+    onChange={(e) =>
+      setFormData({ ...formData, password: e.target.value })
+    }
+    type={showPassword ? "text" : "password"}
+    placeholder="At least 6 characters"
+    className={`w-full px-4 py-3 border rounded-lg pr-12 
+      focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors
+      ${
+        theme === "dark"
+          ? "bg-gray-900 border-gray-600 text-gray-100 placeholder-gray-500"
+          : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+      }
+    `}
+  />
+  <button
+    type="button"
+    onClick={() => setShowPassword(!showPassword)}
+    className="absolute right-4 top-3/5 -translate-y-1/2 text-xl"
+  >
+    {showPassword ? "🙈" : "👁"}
+  </button>
+</div>
+
+<div className="relative">
+  <label
+    className={`block text-sm font-medium mb-2 ${
+      theme === "dark" ? "text-gray-300" : "text-gray-800"
+    }`}
+  >
+     Confirm Password
+  </label>
+
+  <input
+    required
+    value={formData.confirmPassword}
+    onChange={(e) =>
+      setFormData({ ...formData, confirmPassword: e.target.value })
+    }
+    type={showPassword ? "text" : "password"}
+    placeholder="Re-enter your password"
+    className={`w-full px-4 py-3 border rounded-lg pr-12 
+      focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors
+      ${
+        theme === "dark"
+          ? "bg-gray-900 border-gray-600 text-gray-100 placeholder-gray-500"
+          : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+      }
+    `}
+  />
+
+  <button
+    type="button"
+    onClick={() => setShowPassword(!showPassword)}
+    className="absolute right-4 top-3/5 -translate-y-1/2 text-xl"
+  >
+    {showPassword ? "🙈" : "👁"}
+  </button>
+</div>
+
+
+
+            {/* <div>
               <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>
                 Confirm Password
               </label>
@@ -221,7 +295,7 @@ export default function SignUp() {
                 }`}
                 placeholder="Re-enter your password"
               />
-            </div>
+            </div> */}
 
             <button
               type="submit"

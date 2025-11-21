@@ -5,8 +5,10 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+//import { useState } from "react";
 
 export default function SignIn() {
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: '',
@@ -143,12 +145,12 @@ export default function SignIn() {
               />
             </div>
 
-            <div>
+            {/* <div>
               <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>
                 Password
               </label>
               <input
-                type="password"
+                //type="password"
                 required
                 value={formData.password}
                 onChange={(e) =>
@@ -159,9 +161,60 @@ export default function SignIn() {
                     ? 'bg-gray-900 border-gray-600 text-gray-100 placeholder-gray-500'
                     : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
                 }`}
+                type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
               />
-            </div>
+
+        <button
+          type="button"
+          onClick={() => setShowPassword(!showPassword)}
+          style={{
+            position: "absolute",
+            right: "10px",
+            top: "50%"
+            //transform: "translateY(-50%)"
+          }}
+        >
+          {showPassword ? "🙈" : "👁"}
+        </button>
+            </div> */}
+
+            <div className="relative">
+  <label
+    className={`block text-sm font-medium mb-2 ${
+      theme === "dark" ? "text-gray-300" : "text-gray-800"
+    }`}
+  >
+    Password
+  </label>
+
+  <input
+    required
+    value={formData.password}
+    onChange={(e) =>
+      setFormData({ ...formData, password: e.target.value })
+    }
+    type={showPassword ? "text" : "password"}
+    placeholder="Enter your password"
+    className={`w-full px-4 py-3 border rounded-lg pr-12 
+      focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors
+      ${
+        theme === "dark"
+          ? "bg-gray-900 border-gray-600 text-gray-100 placeholder-gray-500"
+          : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+      }
+    `}
+  />
+
+  <button
+    type="button"
+    onClick={() => setShowPassword(!showPassword)}
+    className="absolute right-4 top-3/5 -translate-y-1/2 text-xl"
+  >
+    {showPassword ? "🙈" : "👁"}
+  </button>
+</div>
+
 
             <button
               type="submit"
