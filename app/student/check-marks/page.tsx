@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { 
@@ -361,6 +361,67 @@ export default function StudentCheckMarks() {
     };
   };
 
+  // Memoized modal grade calculations
+  const modalGradeData = useMemo(() => {
+    if (!selectedCourse) return null;
+    return calculateFinalGrade(selectedCourse);
+  }, [selectedCourse]);
+
+  const modalLetterGrade = useMemo(() => {
+    if (!modalGradeData || modalGradeData.total <= 0 || !selectedCourse) return null;
+    return calculateLetterGrade(modalGradeData.total, selectedCourse.course.gradingScale);
+  }, [modalGradeData, selectedCourse]);
+
+  const modalProjections = useMemo(() => {
+    if (!modalGradeData || !selectedCourse) return null;
+
+    const completedWeightage = modalGradeData.breakdown.reduce((sum, item) => sum + item.weightage, 0);
+    const totalWeightage = selectedCourse.exams.reduce((sum, exam) => {
+      if (exam.examCategory === 'Quiz' && selectedCourse.course?.quizWeightage) return sum;
+      if (exam.examCategory === 'Assignment' && selectedCourse.course?.assignmentWeightage) return sum;
+      return sum + exam.weightage;
+    }, 0) + (selectedCourse.course?.quizWeightage || 0) + (selectedCourse.course?.assignmentWeightage || 0);
+    const remainingWeightage = totalWeightage - completedWeightage;
+
+    if (remainingWeightage <= 0) {
+      return null;
+    }
+
+    const targets = [
+      { grade: 'A+', min: 95, color: 'green' },
+      { grade: 'A', min: 85, color: 'green' },
+      { grade: 'A-', min: 80, color: 'blue' },
+      { grade: 'B+', min: 75, color: 'blue' },
+      { grade: 'B', min: 70, color: 'blue' },
+      { grade: 'B-', min: 65, color: 'yellow' },
+      { grade: 'C+', min: 60, color: 'yellow' },
+      { grade: 'C-', min: 55, color: 'orange' },
+      { grade: 'D', min: 50, color: 'orange' },
+    ];
+
+    const estimates = targets.map(target => {
+      const neededTotal = target.min;
+      const neededFromRemaining = neededTotal - modalGradeData.total;
+      const averageNeeded = remainingWeightage > 0 ? (neededFromRemaining / remainingWeightage) * 100 : 0;
+      
+      return {
+        grade: target.grade,
+        targetPercentage: target.min,
+        averageNeeded: Math.max(0, averageNeeded),
+        achievable: averageNeeded <= 100 && averageNeeded >= 0,
+        color: target.color,
+      };
+    });
+
+    return {
+      completedWeightage,
+      totalWeightage,
+      remainingWeightage,
+      currentPoints: modalGradeData.total,
+      estimates: estimates.filter(e => e.achievable),
+    };
+  }, [modalGradeData, selectedCourse]);
+
   return (
     <div className={`min-h-screen transition-colors ${
       theme === 'dark'
@@ -548,7 +609,7 @@ export default function StudentCheckMarks() {
         {/* Course Detail Modal */}
         {showCourseModal && selectedCourse && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-            <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-2xl shadow-2xl max-w-5xl w-full border border-gray-700/50 p-6 max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-2xl shadow-2xl max-w-7xl w-full border border-gray-700/50 p-6 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <div className="flex items-center gap-3">
@@ -573,6 +634,168 @@ export default function StudentCheckMarks() {
                   Close
                 </button>
               </div>
+
+              {/* Grade Summary Card - Top for mobile, Right side for desktop */}
+              {selectedCourse.marks.length > 0 && modalGradeData && modalGradeData.breakdown.length > 0 && (
+                <div className="mb-6">
+                  <div className="lg:grid lg:grid-cols-3 lg:gap-6">
+                    {/* Main Grade Display - Right column on desktop */}
+                    <div className="lg:col-span-1 lg:order-2 mb-6 lg:mb-0">
+                      <div className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 rounded-xl p-6 border border-purple-700/50 lg:sticky lg:top-0">
+                        <h3 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
+                          <span>🎯</span>
+                          <span>Your Estimated Grade</span>
+                        </h3>
+                        
+                        {/* Big Grade Display */}
+                        <div className="text-center mb-6">
+                          {modalLetterGrade && (
+                            <div>
+                              <div className={`text-6xl font-bold mb-2 ${getGradeColor(modalLetterGrade.letter)}`}>
+                                {modalLetterGrade.letter}
+                                {modalLetterGrade.modifier === '1' ? '-' : modalLetterGrade.modifier === '2' ? '+' : ''}
+                              </div>
+                              <div className="text-sm text-gray-400 mb-1">
+                                {getGradeDisplay(modalLetterGrade.letter, modalLetterGrade.modifier)}
+                              </div>
+                              <div className="text-3xl font-bold text-cyan-300 mb-1">
+                                {modalGradeData.total.toFixed(2)}%
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Current weighted score
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Quick Stats */}
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className="bg-blue-900/30 rounded-lg p-3 text-center">
+                            <div className="text-2xl font-bold text-blue-300">
+                              {selectedCourse.marks.length}
+                            </div>
+                            <div className="text-xs text-gray-400">Exams Taken</div>
+                          </div>
+                          <div className="bg-emerald-900/30 rounded-lg p-3 text-center">
+                            <div className="text-2xl font-bold text-emerald-300">
+                              {selectedCourse.exams.length - selectedCourse.marks.length}
+                            </div>
+                            <div className="text-xs text-gray-400">Remaining</div>
+                          </div>
+                        </div>
+
+                        {/* Grade Projections */}
+                        {modalProjections && modalProjections.estimates.length > 0 && (
+                          <div className="mt-4">
+                            <div className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                              <span>🎓</span>
+                              <span>Grade Targets</span>
+                            </div>
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                              {modalProjections.estimates.slice(0, 6).map((est, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50"
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className={`text-lg font-bold ${
+                                      est.color === 'green' ? 'text-green-400' :
+                                      est.color === 'blue' ? 'text-blue-400' :
+                                      est.color === 'yellow' ? 'text-yellow-400' :
+                                      'text-orange-400'
+                                    }`}>
+                                      {est.grade}
+                                    </span>
+                                    <span className="text-xl font-bold text-cyan-300">
+                                      {est.averageNeeded.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    Need avg {est.averageNeeded.toFixed(1)}% in remaining exams
+                                  </div>
+                                  <div className="mt-2 w-full bg-gray-700 rounded-full h-1.5">
+                                    <div 
+                                      className={`h-1.5 rounded-full ${
+                                        est.color === 'green' ? 'bg-green-500' :
+                                        est.color === 'blue' ? 'bg-blue-500' :
+                                        est.color === 'yellow' ? 'bg-yellow-500' :
+                                        'bg-orange-500'
+                                      }`}
+                                      style={{ width: `${Math.min(est.averageNeeded, 100)}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-3 p-2 bg-cyan-900/20 border border-cyan-700/50 rounded text-xs text-cyan-300">
+                              💡 These are the average percentages you need in remaining exams to achieve each grade
+                            </div>
+                          </div>
+                        )}
+
+                        {!modalProjections && (
+                          <div className="mt-4 p-3 bg-green-900/20 border border-green-700/50 rounded-lg text-center">
+                            <div className="text-3xl mb-2">🎉</div>
+                            <div className="text-sm text-green-300 font-medium">
+                              All exams completed!
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              This is your final grade
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Grade Breakdown - Left column on desktop */}
+                    <div className="lg:col-span-2 lg:order-1">
+                      <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-xl p-4 border border-blue-700/50 mb-4">
+                        <h4 className="text-base font-semibold text-gray-100 mb-3 flex items-center gap-2">
+                          <span>📊</span>
+                          <span>Grade Breakdown</span>
+                        </h4>
+                        <div className="space-y-2">
+                          {modalGradeData.breakdown.map((item, idx) => (
+                            <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded ${
+                              item.isAggregated ? 'bg-amber-900/20 border border-amber-700/30' : 'bg-gray-800/50'
+                            }`}>
+                              <div className="flex items-center gap-2 flex-1">
+                                {item.isAggregated && <span>📊</span>}
+                                <span className="text-gray-300">{item.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-blue-400">
+                                  {item.mark.toFixed(2)}/{item.totalMarks}
+                                </span>
+                                <span className="text-purple-400">
+                                  {((item.mark / item.totalMarks) * 100).toFixed(1)}%
+                                </span>
+                                <span className="text-gray-500">×</span>
+                                <span className="text-cyan-400">{item.weightage}%</span>
+                                <span className="text-gray-500">=</span>
+                                <span className="text-green-400 font-semibold min-w-[3rem] text-right">
+                                  {item.contribution.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between text-sm p-2 bg-green-900/20 border border-green-700/50 rounded font-semibold mt-2">
+                            <span className="text-gray-200">Total Points:</span>
+                            <span className="text-green-300 text-base">{modalGradeData.total.toFixed(2)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Exam Details Section */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
+                  <span>📝</span>
+                  <span>Exam Details</span>
+                </h3>
 
               {selectedCourse.exams.length === 0 ? (
                 <div className="text-center py-12">
@@ -810,224 +1033,29 @@ export default function StudentCheckMarks() {
                   })}
                 </div>
               )}
+            </div>
 
-              {/* Course Summary & Final Grade */}
+              {/* Additional Course Information */}
               {selectedCourse.course.showFinalGrade && selectedCourse.marks.length > 0 && (
-                <>
-                  <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-700/50">
-                    <h4 className="text-lg font-semibold text-gray-100 mb-3">📈 Final Grade Estimate</h4>
-                    
-                    {(() => {
-                      const gradeData = calculateFinalGrade(selectedCourse);
-                      const totalWeightage = calculateTotalWeightage(selectedCourse.exams);
-                      
-                      return (
-                        <>
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-                            <div>
-                              <div className="text-xs text-gray-400">Exams Taken</div>
-                              <div className="text-xl font-bold text-blue-300">
-                                {selectedCourse.marks.length} / {selectedCourse.exams.length}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-400">Total Weightage</div>
-                              <div className="text-xl font-bold text-emerald-300">
-                                {totalWeightage}%
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-400">Points Earned</div>
-                              <div className="text-xl font-bold text-purple-300">
-                                {gradeData.total.toFixed(2)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-400">Current Grade</div>
-                              <div className="text-2xl font-bold text-cyan-300">
-                                {totalWeightage > 0 
-                                  ? `${((gradeData.total / totalWeightage) * 100).toFixed(1)}%`
-                                  : 'N/A'}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-400">Letter Grade</div>
-                              <div className="text-2xl font-bold">
-                                {totalWeightage > 0 ? (() => {
-                                  const percentage = (gradeData.total / totalWeightage) * 100;
-                                  const letterGrade = calculateLetterGrade(percentage, selectedCourse.course.gradingScale);
-                                  return (
-                                    <span className={`${getGradeColor(letterGrade.letter)}`}>
-                                      {letterGrade.letter}
-                                      {letterGrade.modifier === '1' ? '-' : letterGrade.modifier === '2' ? '+' : ''}
-                                    </span>
-                                  );
-                                })() : 'N/A'}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Breakdown Details */}
-                          {gradeData.breakdown.length > 0 && (
-                            <div className="mt-4 p-3 bg-gray-900/50 rounded-lg">
-                              <div className="text-sm font-medium text-gray-300 mb-3">Grade Breakdown</div>
-                              <div className="space-y-2">
-                                {gradeData.breakdown.map((item, idx) => (
-                                  <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded ${
-                                    item.isAggregated ? 'bg-amber-900/20 border border-amber-700/30' : 'bg-gray-800/50'
-                                  }`}>
-                                    <div className="flex items-center gap-2">
-                                      {item.isAggregated && <span>📊</span>}
-                                      <span className="text-gray-300">{item.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-blue-400">
-                                        {item.mark.toFixed(2)}/{item.totalMarks}
-                                      </span>
-                                      <span className="text-purple-400">
-                                        {((item.mark / item.totalMarks) * 100).toFixed(1)}%
-                                      </span>
-                                      <span className="text-gray-500">×</span>
-                                      <span className="text-cyan-400">{item.weightage}%</span>
-                                      <span className="text-gray-500">=</span>
-                                      <span className="text-green-400 font-semibold min-w-[3rem] text-right">
-                                        {item.contribution.toFixed(2)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                                <div className="flex items-center justify-between text-sm p-2 bg-green-900/20 border border-green-700/50 rounded font-semibold mt-3">
-                                  <span className="text-gray-200">Total Contribution:</span>
-                                  <span className="text-green-300 text-lg">{gradeData.total.toFixed(2)}%</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Estimated Grade Calculator */}
-                  {(() => {
-                    const estimate = calculateEstimatedGrade(selectedCourse);
-                    if (!estimate) return null;
-
-                    return (
-                      <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-700/50">
-                        <h4 className="text-lg font-semibold text-gray-100 mb-3 flex items-center gap-2">
-                          <span>🎯</span>
-                          <span>Grade Estimator</span>
-                        </h4>
-                        
-                        <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <div className="p-3 bg-purple-900/20 rounded-lg">
-                            <div className="text-xs text-gray-400">Current Progress</div>
-                            <div className="text-lg font-bold text-purple-300">
-                              {estimate.completedExams}/{estimate.totalExams}
-                            </div>
-                            <div className="text-xs text-gray-500">exams</div>
-                          </div>
-                          <div className="p-3 bg-blue-900/20 rounded-lg">
-                            <div className="text-xs text-gray-400">Current Points</div>
-                            <div className="text-lg font-bold text-blue-300">
-                              {estimate.currentPoints.toFixed(1)}
-                            </div>
-                            <div className="text-xs text-gray-500">out of {estimate.completedWeightage}%</div>
-                          </div>
-                          <div className="p-3 bg-amber-900/20 rounded-lg">
-                            <div className="text-xs text-gray-400">Remaining Exams</div>
-                            <div className="text-lg font-bold text-amber-300">
-                              {estimate.remainingExams}
-                            </div>
-                            <div className="text-xs text-gray-500">exams</div>
-                          </div>
-                          <div className="p-3 bg-emerald-900/20 rounded-lg">
-                            <div className="text-xs text-gray-400">Remaining Weight</div>
-                            <div className="text-lg font-bold text-emerald-300">
-                              {estimate.remainingWeightage.toFixed(0)}%
-                            </div>
-                            <div className="text-xs text-gray-500">weightage</div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="text-sm font-medium text-gray-300 mb-3">
-                            Average % needed in remaining exams to achieve:
-                          </div>
-                          {estimate.estimates.map((est, idx) => (
-                            <div 
-                              key={idx} 
-                              className={`p-3 rounded-lg border ${
-                                est.achievable 
-                                  ? 'bg-gray-800/50 border-gray-700/50' 
-                                  : 'bg-red-900/20 border-red-700/30 opacity-50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <span className={`text-2xl font-bold ${
-                                    est.grade === 'A' ? 'text-green-400' :
-                                    est.grade === 'B' ? 'text-blue-400' :
-                                    est.grade === 'C' ? 'text-yellow-400' :
-                                    'text-orange-400'
-                                  }`}>
-                                    {est.grade}
-                                  </span>
-                                  <div>
-                                    <div className="text-sm text-gray-300">
-                                      Grade {est.grade} (≥{est.targetPercentage}%)
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      Need {(est.targetPercentage - estimate.currentPoints).toFixed(1)} more points
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className={`text-2xl font-bold ${
-                                    est.achievable ? 'text-cyan-300' : 'text-red-400'
-                                  }`}>
-                                    {est.averageNeeded.toFixed(1)}%
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {est.achievable ? 'avg needed' : 'not possible'}
-                                  </div>
-                                </div>
-                              </div>
-                              {!est.achievable && (
-                                <div className="mt-2 text-xs text-red-400">
-                                  ⚠️ Target not achievable with remaining weightage
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="mt-4 p-3 bg-cyan-900/20 border border-cyan-700/50 rounded-lg">
-                          <p className="text-xs text-cyan-300">
-                            <strong>💡 How to read:</strong> If you score the shown percentage (average) in all remaining exams, 
-                            you'll achieve that grade. For example, if "Grade B" shows "75%", scoring an average of 75% 
-                            in your remaining {estimate.remainingExams} exam(s) will get you a B grade overall.
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Info Note */}
-                  <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
-                    <p className="text-xs text-blue-300">
-                      <strong>💡 Note:</strong> This is an estimated grade based on current marks. 
-                      Final grades may differ based on additional assessments and instructor discretion.
-                      {(selectedCourse.exams.some(e => e.examCategory === 'Quiz') || 
-                        selectedCourse.exams.some(e => e.examCategory === 'Assignment')) && (
-                        <span className="block mt-1">
-                          Quiz and Assignment marks are aggregated as per course settings.
-                        </span>
-                      )}
+                <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-700/50">
+                  <h4 className="text-base font-semibold text-gray-100 mb-3 flex items-center gap-2">
+                    <span>ℹ️</span>
+                    <span>Additional Information</span>
+                  </h4>
+                  <div className="text-sm text-gray-300 space-y-2">
+                    <p>
+                      <strong>Note:</strong> Your estimated grade is calculated based on completed exams using weighted scoring.
                     </p>
+                    {(selectedCourse.exams.some(e => e.examCategory === 'Quiz') || 
+                      selectedCourse.exams.some(e => e.examCategory === 'Assignment')) && (
+                      <p>
+                        Quiz and Assignment marks are aggregated using the <strong>
+                        {selectedCourse.course.quizAggregation === 'best' ? 'Best' : 'Average'}</strong> method for quizzes
+                        and <strong>{selectedCourse.course.assignmentAggregation === 'best' ? 'Best' : 'Average'}</strong> method for assignments.
+                      </p>
+                    )}
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>
