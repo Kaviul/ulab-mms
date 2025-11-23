@@ -19,18 +19,28 @@ interface MongooseCache {
  * during API Route usage.
  */
 declare global {
-  var mongoose: MongooseCache | undefined;
+  var mongooseCache: MongooseCache | undefined;
 }
 
-let cached: MongooseCache = global.mongoose || { conn: null, promise: null };
+//let cached: MongooseCache = global.mongoose || { conn: null, promise: null };
 
-if (!global.mongoose) {
-  global.mongoose = cached;
+let cached = global.mongooseCache || {
+  conn: null,
+  promise: null,
 }
 
-async function dbConnect() {
+if (!global.mongooseCache) {
+  global.mongooseCache = cached;
+}
+
+ 
+export default async function dbConnect() {
   if (cached.conn) {
-    return cached.conn;
+   // return cached.conn;
+   return {
+    mongoose: cached.conn,
+    db: cached.conn.connection.db,
+   }
   }
 
   if (!cached.promise) {
@@ -48,7 +58,12 @@ async function dbConnect() {
     throw e;
   }
 
-  return cached.conn;
+ // return cached.conn;
+
+ return{
+  mongoose: cached.conn,
+  db: cached.conn.connection.db,
+ }
 }
 
-export default dbConnect;
+//export default dbConnect;
