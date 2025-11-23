@@ -24,10 +24,13 @@ export default function Dashboard() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [duplicatingCourse, setDuplicatingCourse] = useState<Course | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -36,6 +39,13 @@ export default function Dashboard() {
     courseType: 'Theory' as 'Theory' | 'Lab',
   });
   const [editFormData, setEditFormData] = useState({
+    name: '',
+    code: '',
+    semester: 'Spring',
+    year: new Date().getFullYear(),
+    courseType: 'Theory' as 'Theory' | 'Lab',
+  });
+  const [duplicateFormData, setDuplicateFormData] = useState({
     name: '',
     code: '',
     semester: 'Spring',
@@ -187,6 +197,18 @@ export default function Dashboard() {
     setShowEditModal(true);
   };
 
+  const openDuplicateModal = (course: Course) => {
+    setDuplicatingCourse(course);
+    setDuplicateFormData({
+      name: `${course.name} (Copy)`,
+      code: `${course.code}-COPY`,
+      semester: course.semester,
+      year: course.year,
+      courseType: course.courseType,
+    });
+    setShowDuplicateModal(true);
+  };
+
   const handleImportCourse = async () => {
     if (!importFile) {
       alert('Please select a file to import');
@@ -225,6 +247,60 @@ export default function Dashboard() {
       alert('Error importing course. Please ensure the file is a valid JSON backup.');
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleDuplicateCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!duplicatingCourse) return;
+
+    setDuplicating(true);
+    try {
+      // First, export the course data
+      const exportResponse = await fetch(`/api/courses/${duplicatingCourse._id}/export`);
+      if (!exportResponse.ok) {
+        throw new Error('Failed to export course data');
+      }
+      const courseData = await exportResponse.json();
+
+      // Update the course data with new details
+      courseData.course.name = duplicateFormData.name;
+      courseData.course.code = duplicateFormData.code;
+      courseData.course.semester = duplicateFormData.semester;
+      courseData.course.year = duplicateFormData.year;
+      courseData.course.courseType = duplicateFormData.courseType;
+
+      // Import as a new course
+      const importResponse = await fetch('/api/courses/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(courseData),
+      });
+
+      if (importResponse.ok) {
+        const data = await importResponse.json();
+        alert(`Course "${data.course.name}" duplicated successfully!`);
+        setShowDuplicateModal(false);
+        setDuplicatingCourse(null);
+        setDuplicateFormData({
+          name: '',
+          code: '',
+          semester: 'Spring',
+          year: new Date().getFullYear(),
+          courseType: 'Theory',
+        });
+        await fetchCourses(); // Refresh the course list
+      } else {
+        const data = await importResponse.json();
+        setError(data.error || 'Error duplicating course');
+      }
+    } catch (err) {
+      console.error('Duplicate error:', err);
+      setError('Error duplicating course. Please try again.');
+    } finally {
+      setDuplicating(false);
     }
   };
 
@@ -366,6 +442,13 @@ export default function Dashboard() {
                     <span className="text-2xl">{course.courseType === 'Theory' ? '📖' : '🔬'}</span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => openDuplicateModal(course)}
+                      className="px-2 py-1 text-green-400 hover:text-green-300 hover:bg-green-900/30 rounded transition-all"
+                      title="Duplicate course"
+                    >
+                      📋
+                    </button>
                     <button
                       onClick={() => openEditModal(course)}
                       className="px-2 py-1 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded transition-all"
@@ -734,6 +817,153 @@ export default function Dashboard() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Course Modal */}
+      {showDuplicateModal && duplicatingCourse && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className={`rounded-2xl shadow-2xl max-w-md w-full border p-6 transition-colors ${
+            theme === 'dark'
+              ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50'
+              : 'bg-white border-gray-300'
+          }`}>
+            <h2 className={`text-2xl font-bold mb-6 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
+              Duplicate Course
+            </h2>
+
+            <div className="mb-4 p-3 bg-blue-900/20 border border-blue-600/50 rounded-lg">
+              <p className="text-blue-200 text-sm">
+                ℹ️ This will create a new course with all students, exams, and marks from <strong>{duplicatingCourse.name}</strong>.
+              </p>
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleDuplicateCourse} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Course Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={duplicateFormData.name}
+                  onChange={(e) =>
+                    setDuplicateFormData({ ...duplicateFormData, name: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-100 placeholder-gray-500"
+                  placeholder="e.g., Data Structures (Copy)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Course Code
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={duplicateFormData.code}
+                  onChange={(e) =>
+                    setDuplicateFormData({ ...duplicateFormData, code: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-100 placeholder-gray-500"
+                  placeholder="e.g., CSE201-COPY"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Semester
+                </label>
+                <select
+                  value={duplicateFormData.semester}
+                  onChange={(e) =>
+                    setDuplicateFormData({ ...duplicateFormData, semester: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-100"
+                >
+                  <option value="Spring">Spring</option>
+                  <option value="Summer">Summer</option>
+                  <option value="Fall">Fall</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Year
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="2000"
+                  max="2100"
+                  value={duplicateFormData.year}
+                  onChange={(e) =>
+                    setDuplicateFormData({ ...duplicateFormData, year: parseInt(e.target.value) })
+                  }
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Course Type
+                </label>
+                <select
+                  value={duplicateFormData.courseType}
+                  onChange={(e) =>
+                    setDuplicateFormData({ ...duplicateFormData, courseType: e.target.value as 'Theory' | 'Lab' })
+                  }
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-100"
+                >
+                  <option value="Theory">Theory Course</option>
+                  <option value="Lab">Lab Course</option>
+                </select>
+                <p className="mt-2 text-xs text-gray-500">
+                  {duplicateFormData.courseType === 'Theory' 
+                    ? '📖 Theory courses include Midterm and Final exams with CO breakdown'
+                    : '🔬 Lab courses include Lab Final and OEL/CE Project'}
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDuplicateModal(false);
+                    setDuplicatingCourse(null);
+                    setError('');
+                  }}
+                  className="flex-1 px-4 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-all font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={duplicating}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {duplicating ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Duplicating...
+                    </>
+                  ) : (
+                    'Duplicate Course'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

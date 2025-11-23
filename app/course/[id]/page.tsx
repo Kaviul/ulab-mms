@@ -1603,8 +1603,8 @@ export default function CoursePage() {
               <table className={`min-w-full divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-300'}`}>
                 <thead className={theme === 'dark' ? 'bg-gray-900/50' : 'bg-gray-100'}>
                   <tr>
-                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-20 ${theme === 'dark' ? 'text-gray-300 bg-gray-900' : 'text-gray-800 bg-gray-100'}`}>ID</th>
-                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-[100px] z-20 ${theme === 'dark' ? 'text-gray-300 bg-gray-900' : 'text-gray-800 bg-gray-100'}`}>Name</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-20 ${theme === 'dark' ? 'text-gray-300 bg-gray-900 border-r border-gray-700/50' : 'text-gray-800 bg-gray-100 border-r border-gray-300'}`}>ID</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-[100px] z-20 shadow-[2px_0_5px_rgba(0,0,0,0.1)] ${theme === 'dark' ? 'text-gray-300 bg-gray-900 border-r border-gray-700/50' : 'text-gray-800 bg-gray-100 border-r border-gray-300'}`}>Name</th>
                     {exams.map(exam => (
                       <th key={exam._id} className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'}`}>
                         <div>{exam.displayName}</div>
@@ -1657,8 +1657,8 @@ export default function CoursePage() {
                         ? `hover:bg-gray-700/30 ${idx % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-900/20'}`
                         : `hover:bg-gray-100 ${idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`
                     }`}>
-                      <td className={`px-4 py-3 text-sm font-medium text-blue-400 sticky left-0 z-10 ${idx % 2 === 0 ? (theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50') : (theme === 'dark' ? 'bg-gray-900' : 'bg-white')}`}>{student.studentId}</td>
-                      <td className={`px-4 py-3 text-sm sticky left-[100px] z-10 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'} ${idx % 2 === 0 ? (theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50') : (theme === 'dark' ? 'bg-gray-900' : 'bg-white')}`}>
+                      <td className={`px-4 py-3 text-sm font-medium text-blue-400 sticky left-0 z-10 ${theme === 'dark' ? 'border-r border-gray-700/50' : 'border-r border-gray-300'} ${idx % 2 === 0 ? (theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50') : (theme === 'dark' ? 'bg-gray-900' : 'bg-white')}`}>{student.studentId}</td>
+                      <td className={`px-4 py-3 text-sm sticky left-[100px] z-10 shadow-[2px_0_5px_rgba(0,0,0,0.1)] ${theme === 'dark' ? 'text-gray-200 border-r border-gray-700/50' : 'text-gray-800 border-r border-gray-300'} ${idx % 2 === 0 ? (theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50') : (theme === 'dark' ? 'bg-gray-900' : 'bg-white')}`}>
                         <button
                           onClick={() => {
                             setSelectedStudent(student);
