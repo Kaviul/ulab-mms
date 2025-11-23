@@ -847,8 +847,8 @@ export default function CoursePage() {
     );
     
     if (student) {
-      setSelectedStudentForStats(student);
-      setShowStudentStatsModal(true);
+      setSelectedStudent(student);
+      setShowStudentDetail(true);
       setSearchStudentId('');
     } else {
       alert('Student not found in this course');
@@ -2661,6 +2661,7 @@ export default function CoursePage() {
         student={selectedStudent}
         exams={exams}
         marks={marks}
+        course={course!}
       />
 
       {/* Grade Breakdown Modal */}
