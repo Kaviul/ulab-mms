@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { parseCSV } from '@/app/utils/csv';
 import AddMarkModal from '@/app/components/AddMarkModal';
 import StudentDetailModal from '@/app/components/StudentDetailModal';
+import OverviewView from './components/OverviewView';
 import { 
   GradeThreshold, 
   DEFAULT_GRADING_SCALE, 
@@ -139,6 +140,12 @@ export default function CoursePage() {
   const [showResetMarksModal, setShowResetMarksModal] = useState(false);
   const [selectedExamsForAction, setSelectedExamsForAction] = useState<string[]>([]);
   const [confirmationStep, setConfirmationStep] = useState(0);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [showBulkAddStudentModal, setShowBulkAddStudentModal] = useState(false);
+  const [showDeleteStudentModal, setShowDeleteStudentModal] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [deleteConfirmationStep, setDeleteConfirmationStep] = useState(0);
+  const [newStudentData, setNewStudentData] = useState({ studentId: '', name: '' });
   
   const [csvInput, setCsvInput] = useState('');
   const [examFormData, setExamFormData] = useState({
@@ -224,6 +231,102 @@ export default function CoursePage() {
       }
     } catch (err) {
       setError('Error importing students');
+    }
+  };
+
+  const handleAddIndividualStudent = async () => {
+    try {
+      if (!newStudentData.studentId.trim() || !newStudentData.name.trim()) {
+        alert('Please fill in both Student ID and Name');
+        return;
+      }
+
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId,
+          students: [{
+            studentId: newStudentData.studentId.trim(),
+            name: newStudentData.name.trim(),
+          }],
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await fetchCourseData();
+        setShowAddStudentModal(false);
+        setNewStudentData({ studentId: '', name: '' });
+        alert('Student added successfully!');
+      } else {
+        alert(`Error: ${data.error || 'Failed to add student'}`);
+      }
+    } catch (err) {
+      console.error('Error adding student:', err);
+      alert('Error adding student');
+    }
+  };
+
+  const handleBulkImportStudents = async () => {
+    try {
+      const parsedStudents = parseCSV(csvInput);
+      
+      if (parsedStudents.length === 0) {
+        alert('No valid student data found');
+        return;
+      }
+
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId,
+          students: parsedStudents.map(s => ({
+            studentId: s.id,
+            name: s.name,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await fetchCourseData();
+        setShowBulkAddStudentModal(false);
+        setCsvInput('');
+        alert(`Successfully imported ${parsedStudents.length} students!`);
+      } else {
+        alert(`Error: ${data.error || 'Failed to import students'}`);
+      }
+    } catch (err) {
+      console.error('Error importing students:', err);
+      alert('Error importing students');
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!studentToDelete) return;
+
+    try {
+      const response = await fetch(`/api/students/${studentToDelete._id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        await fetchCourseData();
+        setShowDeleteStudentModal(false);
+        setStudentToDelete(null);
+        setDeleteConfirmationStep(0);
+        alert('Student deleted successfully!');
+      } else {
+        const data = await response.json();
+        alert(`Error: ${data.error || 'Failed to delete student'}`);
+      }
+    } catch (err) {
+      console.error('Error deleting student:', err);
+      alert('Error deleting student');
     }
   };
 
@@ -1253,158 +1356,17 @@ export default function CoursePage() {
           <div className="max-w-7xl mx-auto p-6">
             {/* Overview View */}
             {activeView === 'overview' && (
-              <div className="space-y-6">
-                <div>
-                  <h1 className="text-3xl font-bold">Course Overview</h1>
-                  <p className="text-sm mt-1 text-muted-foreground">
-                    Quick stats and actions for {course?.name}
-                  </p>
-                </div>
-
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">👥</span>
-                        <div>
-                          <CardDescription>Students</CardDescription>
-                          <CardTitle className="text-2xl">{students.length}</CardTitle>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardFooter>
-                      <Button 
-                        onClick={() => setShowImportModal(true)}
-                        className="w-full"
-                        size="sm"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Import Students
-                      </Button>
-                    </CardFooter>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">📝</span>
-                        <div>
-                          <CardDescription>Exams</CardDescription>
-                          <CardTitle className="text-2xl">{exams.length}</CardTitle>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardFooter>
-                      <Button 
-                        onClick={() => setShowExamModal(true)}
-                        className="w-full"
-                        size="sm"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Exam
-                      </Button>
-                    </CardFooter>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">✏️</span>
-                        <div>
-                          <CardDescription>Total Marks</CardDescription>
-                          <CardTitle className="text-2xl">{marks.length}</CardTitle>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardFooter>
-                      <Button 
-                        onClick={() => {
-                          setInitialExamId(undefined);
-                          setInitialStudentId(undefined);
-                          setShowMarkModal(true);
-                        }}
-                        disabled={students.length === 0 || exams.length === 0}
-                        className="w-full"
-                        size="sm"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Mark
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                </div>
-
-                {/* Quick Actions Grid */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-xl">Quick Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => setActiveView('students')}
-                        className="h-auto py-4 flex-col"
-                      >
-                        <span className="text-2xl mb-2">👥</span>
-                        <span className="text-sm font-medium">View Students</span>
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        onClick={() => setActiveView('exams')}
-                        className="h-auto py-4 flex-col"
-                      >
-                        <span className="text-2xl mb-2">📝</span>
-                        <span className="text-sm font-medium">Manage Exams</span>
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        onClick={handleExportCSV}
-                        disabled={exportingCSV}
-                        className="h-auto py-4 flex-col"
-                      >
-                        {exportingCSV ? (
-                          <Loader2 className="w-6 h-6 mb-2 animate-spin" />
-                        ) : (
-                          <span className="text-2xl mb-2">📊</span>
-                        )}
-                        <span className="text-sm font-medium">
-                          {exportingCSV ? 'Exporting...' : 'Export CSV'}
-                        </span>
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        onClick={() => setActiveView('marks')}
-                        className="h-auto py-4 flex-col"
-                      >
-                        <span className="text-2xl mb-2">✏️</span>
-                        <span className="text-sm font-medium">Add Marks</span>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Recent Activity or Empty State */}
-                {students.length === 0 ? (
-                  <Card>
-                    <CardContent className="pt-12 pb-12 text-center">
-                      <div className="text-6xl mb-4">🎓</div>
-                      <CardTitle className="text-xl mb-2">Get Started</CardTitle>
-                      <CardDescription className="mb-6">
-                        Import students to begin managing your course
-                      </CardDescription>
-                      <Button onClick={() => setShowImportModal(true)}>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Import Students Now
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : null}
-              </div>
+              <OverviewView
+                course={course!}
+                students={students}
+                exams={exams}
+                marks={marks}
+                onImportStudents={() => setShowImportModal(true)}
+                onAddExam={() => setShowExamModal(true)}
+                onImportCourse={() => setShowImportCourseModal(true)}
+                onExportCSV={handleExportCSV}
+                exportingCSV={exportingCSV}
+              />
             )}
 
             {/* Exams View */}
@@ -1623,11 +1585,31 @@ export default function CoursePage() {
             {/* Students View */}
             {activeView === 'students' && students.length > 0 && (
               <div className="space-y-6">
-                <div>
-                  <h1 className="text-3xl font-bold">Students & Marks</h1>
-                  <p className="text-sm mt-1 text-muted-foreground">
-                    Managing {students.length} student(s)
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-3xl font-bold">Students & Marks</h1>
+                    <p className="text-sm mt-1 text-muted-foreground">
+                      Managing {students.length} student(s)
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setShowAddStudentModal(true)}
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Student
+                    </Button>
+                    <Button
+                      onClick={() => setShowBulkAddStudentModal(true)}
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Bulk Import (CSV)
+                    </Button>
+                  </div>
                 </div>
                 <Card className="p-6">
             <div className="overflow-x-auto">
@@ -1887,16 +1869,30 @@ export default function CoursePage() {
                         })()}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <button
-                          onClick={() => {
-                            setInitialExamId(undefined);
-                            setInitialStudentId(student._id);
-                            setShowMarkModal(true);
-                          }}
-                          className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs rounded-lg transition-all"
-                        >
-                          ✏️
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setInitialExamId(undefined);
+                              setInitialStudentId(student._id);
+                              setShowMarkModal(true);
+                            }}
+                            className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs rounded-lg transition-all"
+                            title="Add/Edit Marks"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => {
+                              setStudentToDelete(student);
+                              setDeleteConfirmationStep(0);
+                              setShowDeleteStudentModal(true);
+                            }}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-all"
+                            title="Delete Student"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -3632,6 +3628,209 @@ export default function CoursePage() {
               variant="destructive"
             >
               Delete Marks
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Add Individual Student Modal */}
+    <Dialog open={showAddStudentModal} onOpenChange={setShowAddStudentModal}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="w-5 h-5" />
+            Add Student
+          </DialogTitle>
+          <DialogDescription>
+            Add a single student to the course
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="student-id">Student ID</Label>
+            <Input
+              id="student-id"
+              value={newStudentData.studentId}
+              onChange={(e) => setNewStudentData({ ...newStudentData, studentId: e.target.value })}
+              placeholder="e.g., S001"
+            />
+          </div>
+          <div>
+            <Label htmlFor="student-name">Student Name</Label>
+            <Input
+              id="student-name"
+              value={newStudentData.name}
+              onChange={(e) => setNewStudentData({ ...newStudentData, name: e.target.value })}
+              placeholder="e.g., John Doe"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowAddStudentModal(false);
+              setNewStudentData({ studentId: '', name: '' });
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleAddIndividualStudent}>
+            Add Student
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Bulk Import Students Modal */}
+    <Dialog open={showBulkAddStudentModal} onOpenChange={setShowBulkAddStudentModal}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="w-5 h-5" />
+            Bulk Import Students (CSV)
+          </DialogTitle>
+          <DialogDescription>
+            Import multiple students using CSV format
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <Label>CSV Data (Format: StudentID, StudentName)</Label>
+            <textarea
+              value={csvInput}
+              onChange={(e) => setCsvInput(e.target.value)}
+              className="w-full h-32 px-4 py-3 bg-background border rounded-lg focus:ring-2 focus:ring-ring text-foreground placeholder-muted-foreground mt-2"
+              placeholder="e.g.&#10;S001, John Doe&#10;S002, Jane Smith&#10;S003, Bob Johnson"
+            />
+          </div>
+          <Alert>
+            <AlertDescription className="text-xs">
+              Each line should contain: Student ID, Student Name (comma-separated)
+            </AlertDescription>
+          </Alert>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowBulkAddStudentModal(false);
+              setCsvInput('');
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleBulkImportStudents}>
+            <Upload className="w-4 h-4 mr-2" />
+            Import Students
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Delete Student Modal with Double Confirmation */}
+    <Dialog open={showDeleteStudentModal} onOpenChange={(open) => {
+      if (!open) {
+        setShowDeleteStudentModal(false);
+        setStudentToDelete(null);
+        setDeleteConfirmationStep(0);
+      }
+    }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="w-5 h-5" />
+            Delete Student
+          </DialogTitle>
+          <DialogDescription>
+            {deleteConfirmationStep === 0 && 'Are you sure you want to delete this student?'}
+            {deleteConfirmationStep === 1 && 'FINAL CONFIRMATION: This action cannot be undone!'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {studentToDelete && (
+          <>
+            {deleteConfirmationStep === 0 && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <p className="font-semibold">You are about to delete:</p>
+                    <div className="p-3 bg-destructive/10 rounded-lg">
+                      <p><strong>ID:</strong> {studentToDelete.studentId}</p>
+                      <p><strong>Name:</strong> {studentToDelete.name}</p>
+                    </div>
+                    <p className="text-sm mt-3">
+                      This will also delete all marks associated with this student.
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {deleteConfirmationStep === 1 && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  <div className="space-y-3">
+                    <p className="font-bold text-lg">⚠️ FINAL CONFIRMATION</p>
+                    <p>This will permanently delete <strong>{studentToDelete.name}</strong> and all their marks!</p>
+                    <p className="text-sm">Type <strong>"DELETE"</strong> below to proceed:</p>
+                    <Input
+                      id="delete-student-confirm"
+                      placeholder="Type DELETE"
+                      className="mt-2 border-red-500"
+                    />
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+          </>
+        )}
+
+        <DialogFooter className="flex gap-2">
+          {deleteConfirmationStep > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmationStep(0)}
+            >
+              Back
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShowDeleteStudentModal(false);
+              setStudentToDelete(null);
+              setDeleteConfirmationStep(0);
+            }}
+          >
+            Cancel
+          </Button>
+          {deleteConfirmationStep === 0 && (
+            <Button
+              onClick={() => setDeleteConfirmationStep(1)}
+              variant="destructive"
+            >
+              Next
+            </Button>
+          )}
+          {deleteConfirmationStep === 1 && (
+            <Button
+              onClick={() => {
+                const input = document.getElementById('delete-student-confirm') as HTMLInputElement;
+                if (input?.value === 'DELETE') {
+                  handleDeleteStudent();
+                } else {
+                  alert('Please type DELETE to proceed');
+                }
+              }}
+              variant="destructive"
+            >
+              Delete Student
             </Button>
           )}
         </DialogFooter>
