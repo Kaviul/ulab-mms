@@ -1,8 +1,18 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Search, Loader2, TrendingUp, Award } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+
 import { 
   calculateLetterGrade, 
   getGradeDisplay,
@@ -82,41 +92,11 @@ export default function StudentCheckMarks() {
   const [searched, setSearched] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
   const [showCourseModal, setShowCourseModal] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [searching, setSearching] = useState(false);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      if (savedTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.body.classList.remove('bg-gray-100');
-      document.body.classList.add('bg-gray-900');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.body.classList.remove('bg-gray-900');
-      document.body.classList.add('bg-gray-100');
-    }
-  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setSearching(true);
     setSearched(false);
     setCourses([]);
 
@@ -137,7 +117,6 @@ export default function StudentCheckMarks() {
       setSearched(true);
     } finally {
       setLoading(false);
-      setSearching(false);
     }
   };
 
@@ -423,17 +402,9 @@ export default function StudentCheckMarks() {
   }, [modalGradeData, selectedCourse]);
 
   return (
-    <div className={`min-h-screen transition-colors ${
-      theme === 'dark'
-        ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900'
-        : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
-    }`}>
+    <div className="min-h-screen">
       {/* Header */}
-      <nav className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors ${
-        theme === 'dark'
-          ? 'bg-gray-900/80 border-gray-700'
-          : 'bg-white/80 border-gray-300'
-      }`}>
+      <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -445,104 +416,93 @@ export default function StudentCheckMarks() {
                 className="drop-shadow-lg"
               />
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold flex items-center gap-2">
                   📊 Check Your Marks
                 </h1>
-                <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}`}>
+                <p className="text-xs text-muted-foreground">
                   Student Self-Service Portal
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleTheme}
-                className={`p-2 rounded-lg transition-all ${
-                  theme === 'dark'
-                    ? 'bg-gray-700 hover:bg-gray-600 text-yellow-300'
-                    : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
-                }`}
-                title="Toggle theme"
-              >
-                {theme === 'dark' ? '☀️' : '🌙'}
-              </button>
-              <Link
-                href="/auth/signin"
-                className={`px-4 py-2 rounded-lg transition-all font-medium text-sm ${
-                  theme === 'dark'
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                    : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
-                }`}
-              >
+            <Button variant="outline" asChild>
+              <Link href="/auth/signin">
                 ← Back to Sign In
               </Link>
-            </div>
+            </Button>
           </div>
         </div>
       </nav>
 
       <div className="max-w-6xl mx-auto p-4 pt-8">
         {/* Search Section */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl shadow-2xl p-6 mb-6 border border-gray-700/50">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-100">
-            <span className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full"></span>
-            Enter Your Student ID
-          </h2>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              Enter Your Student ID
+            </CardTitle>
+            <CardDescription>
+              Search for your marks using your student ID
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSearch} className="flex gap-3">
+              <div className="flex-1">
+                <Label htmlFor="studentId" className="sr-only">Student ID</Label>
+                <Input
+                  id="studentId"
+                  type="text"
+                  placeholder="Enter your Student ID (e.g., 2021-1-60-001)"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4" />
+                    Search
+                  </>
+                )}
+              </Button>
+            </form>
 
-          <form onSubmit={handleSearch} className="flex gap-3">
-            <input
-              type="text"
-              required
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              className="flex-1 px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
-              placeholder="Enter your Student ID (e.g., 2021-1-60-001)"
-              disabled={loading}
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {searching ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Searching...
-                </>
-              ) : (
-                'Search'
-              )}
-            </button>
-          </form>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
-              {error}
-            </div>
-          )}
-        </div>
+            {error && (
+              <div className="mt-4 p-3 bg-destructive/10 border border-destructive rounded-lg text-destructive text-sm">
+                {error}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Results Section */}
         {searched && courses.length > 0 && (
           <>
             {/* Student Info */}
-            <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-xl shadow-2xl p-6 mb-6 border border-blue-700/50">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-2xl">
-                  👨‍🎓
+            <Card className="mb-6 border-primary/20">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-2xl">
+                    👨‍🎓
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">{studentName}</h2>
+                    <p className="text-sm text-muted-foreground">Student ID: {studentId}</p>
+                    <Badge variant="secondary" className="mt-2">
+                      Enrolled in {courses.length} course{courses.length !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-100">{studentName}</h2>
-                  <p className="text-sm text-gray-400">Student ID: {studentId}</p>
-                  <p className="text-sm text-emerald-400 mt-1">
-                    Enrolled in {courses.length} course{courses.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Courses */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -553,53 +513,51 @@ export default function StudentCheckMarks() {
                 const examsCount = courseData.exams.length;
 
                 return (
-                  <button
+                  <Card
                     key={courseData.course._id}
+                    className="cursor-pointer hover:border-primary transition-colors"
                     onClick={() => {
                       setSelectedCourse(courseData);
                       setShowCourseModal(true);
                     }}
-                    className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl shadow-2xl border border-gray-700/50 p-6 text-left hover:border-blue-500/50 hover:shadow-blue-900/20 transition-all"
                   >
-                    <div className="flex items-start gap-3 mb-3">
-                      <span className="text-3xl">
-                        {courseData.course.courseType === 'Theory' ? '📖' : '🔬'}
-                      </span>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-100 mb-1">
-                          {courseData.course.name}
-                        </h3>
-                        <p className="text-sm text-gray-400">
-                          {courseData.course.code} • {courseData.course.semester} {courseData.course.year}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className={`px-3 py-1 rounded text-xs font-medium ${
-                        courseData.course.courseType === 'Theory' 
-                          ? 'bg-blue-900/30 text-blue-300' 
-                          : 'bg-purple-900/30 text-purple-300'
-                      }`}>
-                        {courseData.course.courseType}
-                      </span>
-                      <span className="text-sm text-gray-400">
-                        {marksCount}/{examsCount} exams
-                      </span>
-                      {courseData.course.showFinalGrade && marksCount > 0 && (
-                        <span className="text-sm font-semibold text-emerald-400">
-                          Grade: {totalWeightage > 0 
-                            ? `${((gradeData.total / totalWeightage) * 100).toFixed(1)}%`
-                            : 'N/A'}
+                    <CardHeader>
+                      <div className="flex items-start gap-3">
+                        <span className="text-3xl">
+                          {courseData.course.courseType === 'Theory' ? '📖' : '🔬'}
                         </span>
-                      )}
-                    </div>
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">
+                            {courseData.course.name}
+                          </CardTitle>
+                          <CardDescription>
+                            {courseData.course.code} • {courseData.course.semester} {courseData.course.year}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant={courseData.course.courseType === 'Theory' ? 'default' : 'secondary'}>
+                          {courseData.course.courseType}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {marksCount}/{examsCount} exams
+                        </span>
+                        {courseData.course.showFinalGrade && marksCount > 0 && (
+                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                            Grade: {totalWeightage > 0 
+                              ? `${((gradeData.total / totalWeightage) * 100).toFixed(1)}%`
+                              : 'N/A'}
+                          </Badge>
+                        )}
+                      </div>
 
-                    <div className="mt-4 text-sm text-blue-400 flex items-center gap-1">
-                      Click to view detailed marks
-                      <span>→</span>
-                    </div>
-                  </button>
+                      <div className="text-sm text-primary flex items-center gap-1">
+                        Click to view detailed marks →
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
@@ -607,33 +565,23 @@ export default function StudentCheckMarks() {
         )}
 
         {/* Course Detail Modal */}
-        {showCourseModal && selectedCourse && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-            <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-2xl shadow-2xl max-w-7xl w-full border border-gray-700/50 p-6 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
-                <div>
+        <Dialog open={showCourseModal} onOpenChange={setShowCourseModal}>
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+            {selectedCourse && (
+              <>
+                <DialogHeader>
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">
                       {selectedCourse.course.courseType === 'Theory' ? '📖' : '🔬'}
                     </span>
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-100">{selectedCourse.course.name}</h2>
-                      <p className="text-sm text-gray-400 mt-1">
+                      <DialogTitle>{selectedCourse.course.name}</DialogTitle>
+                      <DialogDescription>
                         {selectedCourse.course.code} • {selectedCourse.course.semester} {selectedCourse.course.year}
-                      </p>
+                      </DialogDescription>
                     </div>
                   </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowCourseModal(false);
-                    setSelectedCourse(null);
-                  }}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all font-medium text-sm"
-                >
-                  Close
-                </button>
-              </div>
+                </DialogHeader>
 
               {/* Grade Summary Card - Top for mobile, Right side for desktop */}
               {selectedCourse.marks.length > 0 && modalGradeData && modalGradeData.breakdown.length > 0 && (
@@ -1037,12 +985,13 @@ export default function StudentCheckMarks() {
 
               {/* Additional Course Information */}
               {selectedCourse.course.showFinalGrade && selectedCourse.marks.length > 0 && (
-                <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-700/50">
-                  <h4 className="text-base font-semibold text-gray-100 mb-3 flex items-center gap-2">
-                    <span>ℹ️</span>
-                    <span>Additional Information</span>
-                  </h4>
-                  <div className="text-sm text-gray-300 space-y-2">
+                <Card className="mt-6 bg-primary/5 border-primary/20">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      ℹ️ Additional Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm space-y-2">
                     <p>
                       <strong>Note:</strong> Your estimated grade is calculated based on completed exams using weighted scoring.
                     </p>
@@ -1054,58 +1003,67 @@ export default function StudentCheckMarks() {
                         and <strong>{selectedCourse.course.assignmentAggregation === 'best' ? 'Best' : 'Average'}</strong> method for assignments.
                       </p>
                     )}
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               )}
-            </div>
-          </div>
-        )}
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Empty State */}
         {searched && courses.length === 0 && !error && (
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl shadow-2xl p-12 text-center border border-gray-700/50">
-            <div className="w-20 h-20 rounded-full bg-gray-700/30 flex items-center justify-center mx-auto mb-4">
-              <span className="text-4xl">🔍</span>
-            </div>
-            <h3 className="text-lg font-medium text-gray-100 mb-2">No Results Found</h3>
-            <p className="text-gray-400">
-              No records found for Student ID: {studentId}
-            </p>
-          </div>
+          <Card className="text-center py-12">
+            <CardContent>
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                <span className="text-4xl">🔍</span>
+              </div>
+              <CardTitle className="mb-2">No Results Found</CardTitle>
+              <CardDescription>
+                No records found for Student ID: {studentId}
+              </CardDescription>
+            </CardContent>
+          </Card>
         )}
 
         {/* Instructions */}
         {!searched && (
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl shadow-2xl p-8 border border-gray-700/50">
-            <h3 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
-              <span className="text-2xl">💡</span>
-              How to Check Your Marks
-            </h3>
-            <ul className="space-y-3 text-gray-300">
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold">1.</span>
-                <span>Enter your complete Student ID in the search box above</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold">2.</span>
-                <span>Click the "Search" button to retrieve your marks</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold">3.</span>
-                <span>View all your courses by clicking on each course card</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400 font-bold">4.</span>
-                <span>See detailed marks including raw, scaled, and CO-wise breakdowns</span>
-              </li>
-            </ul>
-            
-            <div className="mt-6 p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
-              <p className="text-sm text-blue-300">
-                <strong>Note:</strong> Make sure you enter your Student ID exactly as it appears in your records (including hyphens or special characters if any).
-              </p>
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-2xl">💡</span>
+                How to Check Your Marks
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline">1</Badge>
+                  <span>Enter your complete Student ID in the search box above</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline">2</Badge>
+                  <span>Click the "Search" button to retrieve your marks</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline">3</Badge>
+                  <span>View all your courses by clicking on each course card</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline">4</Badge>
+                  <span>See detailed marks including raw, scaled, and CO-wise breakdowns</span>
+                </li>
+              </ul>
+              
+              <Separator />
+              
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <p className="text-sm">
+                  <strong>Note:</strong> Make sure you enter your Student ID exactly as it appears in your records (including hyphens or special characters if any).
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
