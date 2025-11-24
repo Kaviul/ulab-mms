@@ -5,6 +5,76 @@ import dbConnect from '@/lib/mongodb';
 import Student from '@/models/Student';
 import Mark from '@/models/Mark';
 
+// PUT (update) a student
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const studentId = params.id;
+    const body = await request.json();
+    const { studentId: newStudentId, name } = body;
+
+    if (!newStudentId || !name) {
+      return NextResponse.json(
+        { error: 'Student ID and name are required' },
+        { status: 400 }
+      );
+    }
+
+    await dbConnect();
+
+    // Verify student belongs to user
+    const student = await Student.findOne({
+      _id: studentId,
+      userId: session.user.id,
+    });
+
+    if (!student) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+
+    // Check if new studentId conflicts with another student in the same course
+    if (newStudentId !== student.studentId) {
+      const existingStudent = await Student.findOne({
+        courseId: student.courseId,
+        studentId: newStudentId,
+        userId: session.user.id,
+        _id: { $ne: studentId },
+      });
+
+      if (existingStudent) {
+        return NextResponse.json(
+          { error: 'A student with this ID already exists in this course' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Update the student
+    student.studentId = newStudentId;
+    student.name = name;
+    await student.save();
+
+    return NextResponse.json(
+      { message: 'Student updated successfully', student },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error('Update student error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE a student
 export async function DELETE(
   request: NextRequest,

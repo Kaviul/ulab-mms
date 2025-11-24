@@ -78,13 +78,13 @@ export function getModifierName(modifier: string): string {
 /**
  * Get full grade display (e.g., "A+ (Plus)", "B- (Minus)", "F (Fail)")
  */
-export function getGradeDisplay(letter: string, modifier: string): string {
+export function getGradeDisplay(letter: string, modifier?: string): string {
   if (letter === 'F') return 'F (Fail)';
   
   const modifierSymbol = modifier === '1' ? '-' : modifier === '2' ? '+' : '';
-  const modifierName = getModifierName(modifier);
+  const modifierName = modifier ? getModifierName(modifier) : '';
   
-  return `${letter}${modifierSymbol} (${modifierName})`;
+  return modifier ? `${letter}${modifierSymbol} (${modifierName})` : letter;
 }
 
 /**

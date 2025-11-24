@@ -9,7 +9,9 @@ import { parseCSV } from '@/app/utils/csv';
 import AddMarkModal from '@/app/components/AddMarkModal';
 import StudentDetailModal from '@/app/components/StudentDetailModal';
 import OverviewView from './components/OverviewView';
-// Note: Exams, Students, and Marks views remain inline due to complex state dependencies
+import ExamsView from './components/ExamsView';
+import StudentsView from './components/StudentsView';
+import MarksView from './components/MarksView';
 import { 
   GradeThreshold, 
   DEFAULT_GRADING_SCALE, 
@@ -143,6 +145,9 @@ export default function CoursePage() {
   const [confirmationStep, setConfirmationStep] = useState(0);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showBulkAddStudentModal, setShowBulkAddStudentModal] = useState(false);
+  const [showEditStudentModal, setShowEditStudentModal] = useState(false);
+  const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
+  const [editStudentData, setEditStudentData] = useState({ studentId: '', name: '' });
   const [showDeleteStudentModal, setShowDeleteStudentModal] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [deleteConfirmationStep, setDeleteConfirmationStep] = useState(0);
@@ -172,7 +177,7 @@ export default function CoursePage() {
     assignmentWeightage: '',
     gradingScale: DEFAULT_GRADING_SCALE,
   });
-  const [scalingTargets, setScalingTargets] = useState<{ [examId: string]: string }>({});
+  const [scalingTargets, setScalingTargets] = useState<{ [examId: string]: string | undefined }>({});
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -267,6 +272,41 @@ export default function CoursePage() {
     } catch (err) {
       console.error('Error adding student:', err);
       alert('Error adding student');
+    }
+  };
+
+  const handleEditStudent = async () => {
+    try {
+      if (!editStudentData.studentId.trim() || !editStudentData.name.trim()) {
+        alert('Please fill in both Student ID and Name');
+        return;
+      }
+
+      if (!studentToEdit) return;
+
+      const response = await fetch(`/api/students/${studentToEdit._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: editStudentData.studentId.trim(),
+          name: editStudentData.name.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await fetchCourseData();
+        setShowEditStudentModal(false);
+        setStudentToEdit(null);
+        setEditStudentData({ studentId: '', name: '' });
+        alert('Student updated successfully!');
+      } else {
+        alert(`Error: ${data.error || 'Failed to update student'}`);
+      }
+    } catch (err) {
+      console.error('Error updating student:', err);
+      alert('Error updating student');
     }
   };
 
@@ -1372,637 +1412,85 @@ export default function CoursePage() {
 
             {/* Exams View */}
             {activeView === 'exams' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h1 className="text-3xl font-bold">Exams Management</h1>
-                    <p className="text-sm mt-1 text-muted-foreground">
-                      Configure and manage {exams.length} exam(s)
-                    </p>
-                  </div>
-                  <Button onClick={() => setShowExamModal(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add New Exam
-                  </Button>
-                </div>
-
-                {exams.length === 0 ? (
-                  <Card>
-                    <CardContent className="pt-12 pb-12 text-center">
-                      <div className="text-6xl mb-4">📝</div>
-                      <CardTitle className="text-xl mb-2">No Exams Yet</CardTitle>
-                      <CardDescription className="mb-6">
-                        Create your first exam to start tracking student performance
-                      </CardDescription>
-                      <Button onClick={() => setShowExamModal(true)}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create First Exam
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-3">
-                    {exams.map(exam => (
-                      <Card key={exam._id}>
-                        {/* Exam Header - Always Visible */}
-                        <CardHeader className="p-4">
-                          <div className="flex items-center justify-between">
-                            <Button
-                              variant="ghost"
-                              onClick={() => setExpandedExam(expandedExam === exam._id ? null : exam._id)}
-                              className="flex-1 justify-start p-0 h-auto hover:bg-transparent"
-                            >
-                              {expandedExam === exam._id ? (
-                                <ChevronDown className="w-5 h-5 mr-2" />
-                              ) : (
-                                <ChevronRight className="w-5 h-5 mr-2" />
-                              )}
-                              <div className="flex-1 text-left">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <CardTitle className="text-lg">{exam.displayName}</CardTitle>
-                                  {exam.isRequired && (
-                                    <Badge variant="secondary">Required</Badge>
-                                  )}
-                                  {exam.examCategory && (
-                                    <Badge variant="outline">{exam.examCategory}</Badge>
-                                  )}
-                                </div>
-                                <CardDescription className="mt-1">
-                                  {exam.totalMarks} marks • {exam.weightage || 'See Settings'}% weight
-                                  {exam.scalingEnabled && <span className="text-primary"> • Scaling On</span>}
-                                </CardDescription>
-                              </div>
-                            </Button>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setShowExamSettings(exam._id);
-                                  setExamSettings({
-                                    displayName: exam.displayName,
-                                    weightage: exam.weightage.toString(),
-                                    totalMarks: exam.totalMarks.toString(),
-                                    numberOfCOs: exam.numberOfCOs?.toString() || '',
-                                    numberOfQuestions: exam.numberOfQuestions?.toString() || '',
-                                    examCategory: exam.examCategory || '',
-                                  });
-                                }}
-                              >
-                                <Settings className="w-4 h-4" />
-                              </Button>
-                              {!exam.isRequired && (
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleDeleteExam(exam._id)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </CardHeader>
-
-                        {/* Collapsible Content */}
-                        {expandedExam === exam._id && (
-                          <CardContent className="px-4 pb-4 border-t pt-4">
-                            {/* Scaling Toggle */}
-                            <div className="mb-4 space-y-3">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input
-                        type="checkbox"
-                        checked={exam.scalingEnabled}
-                        onChange={() => handleToggleScaling(exam._id, exam.scalingEnabled)}
-                        className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900"
-                      />
-                      <span className="text-gray-300">Enable Scaling</span>
-                    </label>
-                    
-                    {/* Scaling Target Input */}
-                    {exam.scalingEnabled && (
-                      <div className="flex items-center gap-3 ml-6">
-                        <label className="text-sm text-gray-400">Scaled to:</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max={exam.totalMarks}
-                          step="0.01"
-                          value={
-                            scalingTargets[exam._id] !== undefined 
-                              ? scalingTargets[exam._id] 
-                              : (exam.scalingTarget !== undefined && exam.scalingTarget !== null ? exam.scalingTarget : exam.totalMarks)
-                          }
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setScalingTargets(prev => ({
-                              ...prev,
-                              [exam._id]: value
-                            }));
-                          }}
-                          onBlur={() => {
-                            // Validate on blur - if empty or invalid, prompt user
-                            const value = scalingTargets[exam._id];
-                            if (value === undefined || value === '' || value === null) {
-                              alert('Please enter a scaling target value');
-                              const currentTarget = exam.scalingTarget !== undefined && exam.scalingTarget !== null ? exam.scalingTarget : exam.totalMarks;
-                              setScalingTargets(prev => ({
-                                ...prev,
-                                [exam._id]: currentTarget.toString()
-                              }));
-                            }
-                          }}
-                          className="w-24 px-3 py-1.5 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 text-sm"
-                          placeholder={exam.totalMarks.toString()}
-                        />
-                        <button
-                          onClick={() => {
-                            const value = scalingTargets[exam._id];
-                            const currentTarget = exam.scalingTarget !== undefined && exam.scalingTarget !== null ? exam.scalingTarget : exam.totalMarks;
-                            const target = value !== undefined ? parseFloat(value) : currentTarget;
-                            handleUpdateScalingTarget(exam._id, target);
-                          }}
-                          disabled={
-                            !scalingTargets[exam._id] || 
-                            scalingTargets[exam._id] === '' ||
-                            parseFloat(scalingTargets[exam._id]) === (exam.scalingTarget !== undefined && exam.scalingTarget !== null ? exam.scalingTarget : exam.totalMarks)
-                          }
-                          className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-all shadow-lg flex items-center gap-1"
-                          title="Apply scaling target and recalculate"
-                        >
-                          ✓ Apply
-                        </button>
-                        <span className="text-xs text-gray-500">
-                          (Max: {exam.totalMarks})
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Scaling Methods - Only show if scaling is enabled */}
-                  {exam.scalingEnabled && (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => handleApplyScaling(exam._id, 'bellCurve')}
-                        className="px-3 py-1.5 bg-gradient-to-r from-yellow-600 to-amber-600 text-white text-xs rounded-lg hover:from-yellow-700 hover:to-amber-700 transition-all shadow-lg"
-                      >
-                        🎯 Bell Curve
-                      </button>
-                      <button
-                        onClick={() => handleApplyScaling(exam._id, 'linearNormalization')}
-                        className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg"
-                      >
-                        📏 Linear
-                      </button>
-                      <button
-                        onClick={() => handleApplyScaling(exam._id, 'minMaxNormalization')}
-                        className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg"
-                      >
-                        ⚖️ Min-Max
-                      </button>
-                      <button
-                        onClick={() => handleApplyScaling(exam._id, 'percentile')}
-                        className="px-3 py-1.5 bg-gradient-to-r from-pink-600 to-pink-700 text-white text-xs rounded-lg hover:from-pink-700 hover:to-pink-800 transition-all shadow-lg"
-                      >
-                        📊 Percentile
-                      </button>
-                              <button
-                                onClick={() => handleApplyRounding(exam._id)}
-                                className="px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 text-white text-xs rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-lg"
-                              >
-                                🔢 Round
-                              </button>
-                            </div>
-                          )}
-                          </CardContent>
-                        )}
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ExamsView
+                exams={exams}
+                expandedExam={expandedExam}
+                scalingTargets={scalingTargets}
+                onSetExpandedExam={setExpandedExam}
+                onSetScalingTargets={setScalingTargets}
+                onShowExamModal={() => setShowExamModal(true)}
+                onShowExamSettings={(examId) => setShowExamSettings(examId)}
+                onSetExamSettings={setExamSettings}
+                onDeleteExam={handleDeleteExam}
+                onToggleScaling={handleToggleScaling}
+                onUpdateScalingTarget={handleUpdateScalingTarget}
+                onApplyScaling={handleApplyScaling}
+                onApplyRounding={handleApplyRounding}
+              />
             )}
 
             {/* Students View */}
-            {activeView === 'students' && students.length > 0 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h1 className="text-3xl font-bold">Students & Marks</h1>
-                    <p className="text-sm mt-1 text-muted-foreground">
-                      Managing {students.length} student(s)
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => setShowAddStudentModal(true)}
-                      variant="outline"
-                      className="gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Student
-                    </Button>
-                    <Button
-                      onClick={() => setShowBulkAddStudentModal(true)}
-                      variant="outline"
-                      className="gap-2"
-                    >
-                      <Upload className="w-4 h-4" />
-                      Bulk Import (CSV)
-                    </Button>
-                  </div>
-                </div>
-                <Card className="p-6">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-border">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-20 bg-muted/50 border-r">ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-[100px] z-20 shadow-[2px_0_5px_rgba(0,0,0,0.1)] bg-muted/50 border-r">Name</th>
-                    {exams.map(exam => (
-                      <th key={exam._id} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                        <div>{exam.displayName}</div>
-                        <div className="text-[10px] font-normal mt-0.5 text-muted-foreground">Raw / Scaled / Rounded</div>
-                      </th>
-                    ))}
-                    {hasQuizzes && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider bg-amber-900/20 border-l-2 border-amber-500/50">
-                        <div className="flex items-center gap-1">
-                          <span>📝 Quiz (Agg)</span>
-                        </div>
-                        <div className="text-[10px] font-normal mt-0.5 text-amber-400">
-                          {course?.quizAggregation === 'best' ? 'Best' : 'Average'} • {course?.quizWeightage || 0}%
-                        </div>
-                      </th>
-                    )}
-                    {hasAssignments && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider bg-blue-900/20 border-l-2 border-blue-500/50">
-                        <div className="flex items-center gap-1">
-                          <span>📋 Assignment (Agg)</span>
-                        </div>
-                        <div className="text-[10px] font-normal mt-0.5 text-blue-400">
-                          {course?.assignmentAggregation === 'best' ? 'Best' : 'Average'} • {course?.assignmentWeightage || 0}%
-                        </div>
-                      </th>
-                    )}
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider bg-gradient-to-r from-green-900/20 to-emerald-900/20 border-l-2 border-green-500/50">
-                      <div className="flex items-center gap-1">
-                        <span>🎯 Final Grade (Est.)</span>
-                      </div>
-                      <div className="text-[10px] font-normal mt-0.5 text-green-400">
-                        Weighted Total
-                      </div>
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider bg-gradient-to-r from-purple-900/20 to-violet-900/20 border-l-2 border-purple-500/50">
-                      <div className="flex items-center gap-1">
-                        <span>🏆 Letter Grade</span>
-                      </div>
-                      <div className="text-[10px] font-normal mt-0.5 text-purple-400">
-                        Based on %
-                      </div>
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {students.map((student, idx) => (
-                    <tr key={student._id} className={`transition-colors hover:bg-muted/50 ${idx % 2 === 0 ? 'bg-muted/20' : 'bg-background'}`}>
-                      <td className={`px-4 py-3 text-sm font-medium text-primary sticky left-0 z-10 border-r ${idx % 2 === 0 ? 'bg-muted/20' : 'bg-background'}`}>{student.studentId}</td>
-                      <td className={`px-4 py-3 text-sm sticky left-[100px] z-10 shadow-[2px_0_5px_rgba(0,0,0,0.1)] border-r ${idx % 2 === 0 ? 'bg-muted/20' : 'bg-background'}`}>
-                        <button
-                          onClick={() => {
-                            setSelectedStudent(student);
-                            setShowStudentDetail(true);
-                          }}
-                          className="hover:text-blue-400 hover:underline transition-colors cursor-pointer text-left"
-                        >
-                          {student.name}
-                        </button>
-                      </td>
-                      {exams.map(exam => {
-                        const mark = getMark(student._id, exam._id);
-                        return (
-                          <td key={exam._id} className="px-4 py-3 text-sm">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1">
-                                {mark ? (
-                                  exam.scalingEnabled ? (
-                                    // Scaling is enabled - show Raw/Scaled/Rounded with labels
-                                    <div className="flex flex-col gap-1">
-                                      <Badge variant="secondary" className="font-medium justify-start">
-                                        Raw: {mark.rawMark}
-                                      </Badge>
-                                      {mark.scaledMark !== undefined && mark.scaledMark !== null ? (
-                                        <Badge variant="secondary" className="font-medium bg-emerald-500/20 justify-start">
-                                          Scaled: {mark.scaledMark}
-                                        </Badge>
-                                      ) : (
-                                        <span className="text-xs italic text-muted-foreground">Not scaled</span>
-                                      )}
-                                      {mark.roundedMark !== undefined && mark.roundedMark !== null ? (
-                                        <Badge variant="secondary" className="font-medium bg-purple-500/20">
-                                          Rounded: {mark.roundedMark}
-                                        </Badge>
-                                      ) : mark.scaledMark !== undefined && mark.scaledMark !== null ? (
-                                        <span className="text-xs italic text-muted-foreground">Not rounded</span>
-                                      ) : null}
-                                    </div>
-                                  ) : (
-                                    // Scaling is not enabled - show only the raw mark without label
-                                    <Badge variant="secondary" className="font-medium">
-                                      {mark.rawMark}
-                                    </Badge>
-                                  )
-                                ) : (
-                                  <span className="text-muted-foreground">0</span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        );
-                      })}
-                      {hasQuizzes && (
-                        <td className="px-4 py-3 text-sm bg-amber-900/10 border-l-2 border-amber-500/30">
-                          {(() => {
-                            const aggMark = getAggregatedMark(student._id, 'Quiz');
-                            if (!aggMark) return <span className="text-gray-600">0</span>;
-                            
-                            if ('isAggregated' in aggMark && aggMark.isAggregated) {
-                              // Average mode: show calculated average and rounded value
-                              return (
-                                <div className="flex flex-col gap-1">
-                                  <span className="px-2 py-1 rounded font-medium text-xs bg-amber-900/40 text-amber-200">
-                                    Avg: {aggMark.rawMark.toFixed(2)}
-                                  </span>
-                                  <span className="px-2 py-1 rounded font-medium text-xs bg-amber-800/40 text-amber-300">
-                                    Rounded: {aggMark.roundedMark}
-                                  </span>
-                                </div>
-                              );
-                            } else {
-                              // Best mode: show the best mark
-                              const exam = exams.find(e => e._id === aggMark.examId);
-                              if (!exam) return <span className="text-gray-600">0</span>;
-                              
-                              // Use scaled mark if available and scaling is enabled, otherwise raw mark
-                              const markToUse = (exam.scalingEnabled && aggMark.scaledMark !== undefined && aggMark.scaledMark !== null) 
-                                ? aggMark.scaledMark 
-                                : aggMark.rawMark;
-                              const markLabel = (exam.scalingEnabled && aggMark.scaledMark !== undefined && aggMark.scaledMark !== null) 
-                                ? 'Scaled' 
-                                : 'Raw';
-                              
-                              return (
-                                <div className="flex flex-col gap-1">
-                                  <span className="px-2 py-1 rounded font-medium text-xs bg-amber-900/40 text-amber-200">
-                                    Best: {markToUse}
-                                  </span>
-                                  <span className="text-xs italic text-gray-500">
-                                    ({markLabel}: {markToUse}/{exam.totalMarks})
-                                  </span>
-                                </div>
-                              );
-                            }
-                          })()}
-                        </td>
-                      )}
-                      {hasAssignments && (
-                        <td className="px-4 py-3 text-sm bg-blue-900/10 border-l-2 border-blue-500/30">
-                          {(() => {
-                            const aggMark = getAggregatedMark(student._id, 'Assignment');
-                            if (!aggMark) return <span className="text-gray-600">0</span>;
-                            
-                            if ('isAggregated' in aggMark && aggMark.isAggregated) {
-                              // Average mode: show calculated average and rounded value
-                              return (
-                                <div className="flex flex-col gap-1">
-                                  <span className="px-2 py-1 rounded font-medium text-xs bg-blue-900/40 text-blue-200">
-                                    Avg: {aggMark.rawMark.toFixed(2)}
-                                  </span>
-                                  <span className="px-2 py-1 rounded font-medium text-xs bg-blue-800/40 text-blue-300">
-                                    Rounded: {aggMark.roundedMark}
-                                  </span>
-                                </div>
-                              );
-                            } else {
-                              // Best mode: show the best mark
-                              const exam = exams.find(e => e._id === aggMark.examId);
-                              if (!exam) return <span className="text-gray-600">0</span>;
-                              
-                              // Use scaled mark if available and scaling is enabled, otherwise raw mark
-                              const markToUse = (exam.scalingEnabled && aggMark.scaledMark !== undefined && aggMark.scaledMark !== null) 
-                                ? aggMark.scaledMark 
-                                : aggMark.rawMark;
-                              const markLabel = (exam.scalingEnabled && aggMark.scaledMark !== undefined && aggMark.scaledMark !== null) 
-                                ? 'Scaled' 
-                                : 'Raw';
-                              
-                              return (
-                                <div className="flex flex-col gap-1">
-                                  <span className="px-2 py-1 rounded font-medium text-xs bg-blue-900/40 text-blue-200">
-                                    Best: {markToUse}
-                                  </span>
-                                  <span className="text-xs italic text-gray-500">
-                                    ({markLabel}: {markToUse}/{exam.totalMarks})
-                                  </span>
-                                </div>
-                              );
-                            }
-                          })()}
-                        </td>
-                      )}
-                      <td className="px-4 py-3 text-sm bg-gradient-to-r from-green-900/10 to-emerald-900/10 border-l-2 border-green-500/30">
-                        {(() => {
-                          const gradeData = calculateFinalGrade(student._id);
-                          if (gradeData.breakdown.length === 0) {
-                            return <span className="text-gray-600">0</span>;
-                          }
-                          
-                          return (
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1">
-                                <div className="flex flex-col gap-1">
-                                  <span className="px-2 py-1 rounded font-medium text-xs bg-green-900/40 text-green-200">
-                                    Total: {gradeData.total.toFixed(2)}%
-                                  </span>
-                                  <span className="text-[10px] italic text-gray-500">
-                                    Out of 100%
-                                  </span>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => {
-                                  setSelectedStudentForGrade(student);
-                                  setShowGradeBreakdown(true);
-                                }}
-                                className="px-2 py-1 bg-blue-900/40 hover:bg-blue-900/60 text-blue-300 text-xs rounded transition-all"
-                                title="View breakdown"
-                              >
-                                ℹ️
-                              </button>
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-4 py-3 text-sm bg-gradient-to-r from-purple-900/10 to-violet-900/10 border-l-2 border-purple-500/30">
-                        {(() => {
-                          const gradeData = calculateFinalGrade(student._id);
-                          if (gradeData.breakdown.length === 0) {
-                            return <span className="text-gray-600">0</span>;
-                          }
-                          
-                          const letterGrade = calculateLetterGrade(gradeData.total, course?.gradingScale);
-                          
-                          if (!letterGrade) {
-                            return <span className="text-gray-600">0</span>;
-                          }
-                          
-                          return (
-                            <div className="flex items-center gap-2">
-                              <span className={`px-3 py-1.5 rounded-lg font-bold text-sm ${getGradeBgColor(letterGrade.letter)} ${getGradeColor(letterGrade.letter)} border ${letterGrade.letter === 'A' ? 'border-green-500/30' : letterGrade.letter === 'B' ? 'border-blue-500/30' : letterGrade.letter === 'C' ? 'border-yellow-500/30' : letterGrade.letter === 'D' ? 'border-orange-500/30' : 'border-red-500/30'}`}>
-                                {getGradeDisplay(letterGrade.letter, letterGrade.modifier)}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                ({gradeData.total.toFixed(2)}%)
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setInitialExamId(undefined);
-                              setInitialStudentId(student._id);
-                              setShowMarkModal(true);
-                            }}
-                            className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs rounded-lg transition-all"
-                            title="Add/Edit Marks"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            onClick={() => {
-                              setStudentToDelete(student);
-                              setDeleteConfirmationStep(0);
-                              setShowDeleteStudentModal(true);
-                            }}
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-all"
-                            title="Delete Student"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-                </Card>
-              </div>
+            {activeView === 'students' && (
+              <StudentsView
+                students={students}
+                exams={exams}
+                marks={marks}
+                course={course}
+                hasQuizzes={hasQuizzes}
+                hasAssignments={hasAssignments}
+                getMark={getMark}
+                getAggregatedMark={getAggregatedMark}
+                calculateFinalGrade={calculateFinalGrade}
+                calculateLetterGrade={calculateLetterGrade}
+                getGradeDisplay={getGradeDisplay}
+                getGradeColor={getGradeColor}
+                getGradeBgColor={getGradeBgColor}
+                onShowAddStudentModal={() => setShowAddStudentModal(true)}
+                onShowBulkAddStudentModal={() => setShowBulkAddStudentModal(true)}
+                onEditStudent={(student) => {
+                  setStudentToEdit(student);
+                  setEditStudentData({ studentId: student.studentId, name: student.name });
+                  setShowEditStudentModal(true);
+                }}
+                onShowStudentDetail={(student) => {
+                  setSelectedStudent(student);
+                  setShowStudentDetail(true);
+                }}
+                onShowGradeBreakdown={(student) => {
+                  setSelectedStudentForGrade(student);
+                  setShowGradeBreakdown(true);
+                }}
+                onDeleteStudent={(student) => {
+                  setStudentToDelete(student);
+                  setDeleteConfirmationStep(0);
+                  setShowDeleteStudentModal(true);
+                }}
+              />
             )}
 
-            {/* Marks View - Shows same table focused on marks management */}
-            {activeView === 'marks' && students.length > 0 && exams.length > 0 && (
-              <div className="space-y-6">
-                <div>
-                  <h1 className="text-3xl font-bold">Marks Management</h1>
-                  <p className="text-sm mt-1 text-muted-foreground">
-                    Add and manage marks for {students.length} student(s) across {exams.length} exam(s). Click on each mark to add or edit.
-                  </p>
-                </div>
-                <div className="flex gap-3 flex-wrap">
-                  <Button
-                    onClick={() => {
-                      setInitialExamId(undefined);
-                      setInitialStudentId(undefined);
-                      setShowMarkModal(true);
-                    }}
-                    className="gap-2"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Add Mark
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setSelectedExamsForAction([]);
-                      setConfirmationStep(0);
-                      setShowSetZeroModal(true);
-                    }}
-                    variant="outline"
-                    className="gap-2 border-blue-500/50 hover:bg-blue-500/10"
-                  >
-                    <span>0️⃣</span>
-                    Set Empty Marks to 0
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setSelectedExamsForAction([]);
-                      setConfirmationStep(0);
-                      setShowResetMarksModal(true);
-                    }}
-                    variant="outline"
-                    className="gap-2 border-red-500/50 hover:bg-red-500/10"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Reset Marks
-                  </Button>
-                </div>
-                <Card className="p-6">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-border">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-20 bg-muted/50 border-r">Student</th>
-                          {exams.map(exam => (
-                            <th key={exam._id} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                              <div>{exam.displayName}</div>
-                              <div className="text-[10px] font-normal mt-0.5 text-muted-foreground">{exam.totalMarks} marks</div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/50">
-                        {students.map((student, idx) => (
-                          <tr key={student._id} className={`transition-colors hover:bg-muted/50 ${idx % 2 === 0 ? 'bg-muted/20' : 'bg-background'}`}>
-                            <td className={`px-4 py-3 text-sm font-medium sticky left-0 z-10 border-r ${idx % 2 === 0 ? 'bg-muted/20' : 'bg-background'}`}>
-                              <div className="flex flex-col">
-                                <span className="text-primary">{student.studentId}</span>
-                                <span className="text-xs text-muted-foreground">{student.name}</span>
-                              </div>
-                            </td>
-                            {exams.map(exam => {
-                              const mark = getMark(student._id, exam._id);
-                              return (
-                                <td key={exam._id} className={`px-4 py-3 text-sm`}>
-                                  <Button
-                                    onClick={() => {
-                                      setInitialExamId(exam._id);
-                                      setInitialStudentId(student._id);
-                                      setShowMarkModal(true);
-                                    }}
-                                    variant={mark ? "secondary" : "outline"}
-                                    size="sm"
-                                    className="w-full justify-center"
-                                  >
-                                    {mark ? (
-                                      <span className="font-semibold">{mark.rawMark}</span>
-                                    ) : (
-                                      <span className="text-muted-foreground">+ Add</span>
-                                    )}
-                                  </Button>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              </div>
+            {/* Marks View */}
+            {activeView === 'marks' && (
+              <MarksView
+                students={students}
+                exams={exams}
+                marks={marks}
+                getMark={getMark}
+                onShowMarkModal={(examId, studentId) => {
+                  setInitialExamId(examId);
+                  setInitialStudentId(studentId);
+                  setShowMarkModal(true);
+                }}
+                onShowSetZeroModal={() => {
+                  setSelectedExamsForAction([]);
+                  setConfirmationStep(0);
+                  setShowSetZeroModal(true);
+                }}
+                onShowResetMarksModal={() => {
+                  setSelectedExamsForAction([]);
+                  setConfirmationStep(0);
+                  setShowResetMarksModal(true);
+                }}
+              />
             )}
 
             {/* Empty States */}
@@ -3681,6 +3169,59 @@ export default function CoursePage() {
           </Button>
           <Button onClick={handleAddIndividualStudent}>
             Add Student
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Edit Student Modal */}
+    <Dialog open={showEditStudentModal} onOpenChange={setShowEditStudentModal}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            ✏️ Edit Student
+          </DialogTitle>
+          <DialogDescription>
+            Update student ID and name
+          </DialogDescription>
+        </DialogHeader>
+
+        {studentToEdit && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-student-id">Student ID</Label>
+              <Input
+                id="edit-student-id"
+                value={editStudentData.studentId}
+                onChange={(e) => setEditStudentData({ ...editStudentData, studentId: e.target.value })}
+                placeholder="e.g., S001"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-student-name">Student Name</Label>
+              <Input
+                id="edit-student-name"
+                value={editStudentData.name}
+                onChange={(e) => setEditStudentData({ ...editStudentData, name: e.target.value })}
+                placeholder="e.g., John Doe"
+              />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowEditStudentModal(false);
+              setStudentToEdit(null);
+              setEditStudentData({ studentId: '', name: '' });
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleEditStudent}>
+            Save Changes
           </Button>
         </DialogFooter>
       </DialogContent>
