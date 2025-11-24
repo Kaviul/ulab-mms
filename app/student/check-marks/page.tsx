@@ -566,7 +566,7 @@ export default function StudentCheckMarks() {
 
         {/* Course Detail Modal */}
         <Dialog open={showCourseModal} onOpenChange={setShowCourseModal}>
-          <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-[1400px] max-h-[90vh] overflow-y-auto">
             {selectedCourse && (
               <>
                 <DialogHeader>
@@ -586,14 +586,16 @@ export default function StudentCheckMarks() {
               {/* Grade Summary Card - Top for mobile, Right side for desktop */}
               {selectedCourse.marks.length > 0 && modalGradeData && modalGradeData.breakdown.length > 0 && (
                 <div className="mb-6">
-                  <div className="lg:grid lg:grid-cols-3 lg:gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Main Grade Display - Right column on desktop */}
-                    <div className="lg:col-span-1 lg:order-2 mb-6 lg:mb-0">
-                      <div className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 rounded-xl p-6 border border-purple-700/50 lg:sticky lg:top-0">
-                        <h3 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
-                          <span>🎯</span>
-                          <span>Your Estimated Grade</span>
-                        </h3>
+                    <div className="lg:col-span-1 lg:order-2">
+                      <Card className="lg:sticky lg:top-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            🎯 Your Estimated Grade
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
                         
                         {/* Big Grade Display */}
                         <div className="text-center mb-6">
@@ -617,91 +619,100 @@ export default function StudentCheckMarks() {
                         </div>
 
                         {/* Quick Stats */}
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                          <div className="bg-blue-900/30 rounded-lg p-3 text-center">
-                            <div className="text-2xl font-bold text-blue-300">
-                              {selectedCourse.marks.length}
-                            </div>
-                            <div className="text-xs text-gray-400">Exams Taken</div>
-                          </div>
-                          <div className="bg-emerald-900/30 rounded-lg p-3 text-center">
-                            <div className="text-2xl font-bold text-emerald-300">
-                              {selectedCourse.exams.length - selectedCourse.marks.length}
-                            </div>
-                            <div className="text-xs text-gray-400">Remaining</div>
-                          </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Card className="bg-blue-500/10 border-blue-500/20">
+                            <CardContent className="p-3 text-center">
+                              <div className="text-2xl font-bold text-blue-400">
+                                {selectedCourse.marks.length}
+                              </div>
+                              <div className="text-xs text-muted-foreground">Exams Taken</div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-emerald-500/10 border-emerald-500/20">
+                            <CardContent className="p-3 text-center">
+                              <div className="text-2xl font-bold text-emerald-400">
+                                {selectedCourse.exams.length - selectedCourse.marks.length}
+                              </div>
+                              <div className="text-xs text-muted-foreground">Remaining</div>
+                            </CardContent>
+                          </Card>
                         </div>
 
                         {/* Grade Projections */}
                         {modalProjections && modalProjections.estimates.length > 0 && (
-                          <div className="mt-4">
-                            <div className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
-                              <span>🎓</span>
-                              <span>Grade Targets</span>
+                          <div>
+                            <div className="text-sm font-medium mb-3 flex items-center gap-2">
+                              🎓 Grade Targets
                             </div>
                             <div className="space-y-2 max-h-64 overflow-y-auto">
                               {modalProjections.estimates.slice(0, 6).map((est, idx) => (
-                                <div 
-                                  key={idx} 
-                                  className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50"
-                                >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className={`text-lg font-bold ${
-                                      est.color === 'green' ? 'text-green-400' :
-                                      est.color === 'blue' ? 'text-blue-400' :
-                                      est.color === 'yellow' ? 'text-yellow-400' :
-                                      'text-orange-400'
-                                    }`}>
-                                      {est.grade}
-                                    </span>
-                                    <span className="text-xl font-bold text-cyan-300">
-                                      {est.averageNeeded.toFixed(1)}%
-                                    </span>
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    Need avg {est.averageNeeded.toFixed(1)}% in remaining exams
-                                  </div>
-                                  <div className="mt-2 w-full bg-gray-700 rounded-full h-1.5">
-                                    <div 
-                                      className={`h-1.5 rounded-full ${
-                                        est.color === 'green' ? 'bg-green-500' :
-                                        est.color === 'blue' ? 'bg-blue-500' :
-                                        est.color === 'yellow' ? 'bg-yellow-500' :
-                                        'bg-orange-500'
-                                      }`}
-                                      style={{ width: `${Math.min(est.averageNeeded, 100)}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
+                                <Card key={idx} className="bg-card/50">
+                                  <CardContent className="p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className={`text-lg font-bold ${
+                                        est.color === 'green' ? 'text-green-400' :
+                                        est.color === 'blue' ? 'text-blue-400' :
+                                        est.color === 'yellow' ? 'text-yellow-400' :
+                                        'text-orange-400'
+                                      }`}>
+                                        {est.grade}
+                                      </span>
+                                      <span className="text-xl font-bold text-cyan-400">
+                                        {est.averageNeeded.toFixed(1)}%
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      Need avg {est.averageNeeded.toFixed(1)}% in remaining exams
+                                    </div>
+                                    <div className="mt-2 w-full bg-secondary rounded-full h-1.5">
+                                      <div 
+                                        className={`h-1.5 rounded-full ${
+                                          est.color === 'green' ? 'bg-green-500' :
+                                          est.color === 'blue' ? 'bg-blue-500' :
+                                          est.color === 'yellow' ? 'bg-yellow-500' :
+                                          'bg-orange-500'
+                                        }`}
+                                        style={{ width: `${Math.min(est.averageNeeded, 100)}%` }}
+                                      ></div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
                               ))}
                             </div>
-                            <div className="mt-3 p-2 bg-cyan-900/20 border border-cyan-700/50 rounded text-xs text-cyan-300">
-                              💡 These are the average percentages you need in remaining exams to achieve each grade
-                            </div>
+                            <Card className="mt-3 bg-cyan-500/10 border-cyan-500/20">
+                              <CardContent className="p-2 text-xs text-cyan-400">
+                                💡 These are the average percentages you need in remaining exams to achieve each grade
+                              </CardContent>
+                            </Card>
                           </div>
                         )}
 
                         {!modalProjections && (
-                          <div className="mt-4 p-3 bg-green-900/20 border border-green-700/50 rounded-lg text-center">
-                            <div className="text-3xl mb-2">🎉</div>
-                            <div className="text-sm text-green-300 font-medium">
-                              All exams completed!
-                            </div>
-                            <div className="text-xs text-gray-400 mt-1">
-                              This is your final grade
-                            </div>
-                          </div>
+                          <Card className="bg-green-500/10 border-green-500/20">
+                            <CardContent className="pt-6 text-center">
+                              <div className="text-3xl mb-2">🎉</div>
+                              <div className="text-sm font-medium text-green-300">
+                                All exams completed!
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                This is your final grade
+                              </div>
+                            </CardContent>
+                          </Card>
                         )}
-                      </div>
+                        </CardContent>
+                      </Card>
                     </div>
 
                     {/* Grade Breakdown - Left column on desktop */}
-                    <div className="lg:col-span-2 lg:order-1">
-                      <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-xl p-4 border border-blue-700/50 mb-4">
-                        <h4 className="text-base font-semibold text-gray-100 mb-3 flex items-center gap-2">
-                          <span>📊</span>
-                          <span>Grade Breakdown</span>
-                        </h4>
+                    <div className="lg:col-span-2 lg:order-1 space-y-4">
+                      <Card className="bg-gradient-to-br from-primary/5 to-primary/[0.02] border-primary/10">
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            📊 Grade Breakdown
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
                         <div className="space-y-2">
                           {modalGradeData.breakdown.map((item, idx) => (
                             <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded ${
@@ -727,12 +738,13 @@ export default function StudentCheckMarks() {
                               </div>
                             </div>
                           ))}
-                          <div className="flex items-center justify-between text-sm p-2 bg-green-900/20 border border-green-700/50 rounded font-semibold mt-2">
-                            <span className="text-gray-200">Total Points:</span>
-                            <span className="text-green-300 text-base">{modalGradeData.total.toFixed(2)}%</span>
+                          <div className="flex items-center justify-between text-sm p-2 bg-green-500/10 border border-green-500/20 rounded font-semibold mt-2">
+                            <span>Total Points:</span>
+                            <span className="text-base text-green-400">{modalGradeData.total.toFixed(2)}%</span>
                           </div>
                         </div>
-                      </div>
+                        </CardContent>
+                      </Card>
                     </div>
                   </div>
                 </div>
@@ -740,16 +752,17 @@ export default function StudentCheckMarks() {
 
               {/* Exam Details Section */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
-                  <span>📝</span>
-                  <span>Exam Details</span>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  📝 Exam Details
                 </h3>
 
               {selectedCourse.exams.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-4xl mb-3">📭</div>
-                  <p className="text-gray-400">No exams configured for this course yet</p>
-                </div>
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <div className="text-4xl mb-3">📭</div>
+                    <p className="text-muted-foreground">No exams configured for this course yet</p>
+                  </CardContent>
+                </Card>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {selectedCourse.exams.map((exam) => {
@@ -757,27 +770,27 @@ export default function StudentCheckMarks() {
                     const stats = selectedCourse.classStats.find(s => s.examId === exam._id);
                     
                     return (
-                      <div
+                      <Card
                         key={exam._id}
-                        className={`p-4 rounded-lg border transition-all ${
-                          mark 
-                            ? 'border-blue-700/50 bg-gradient-to-br from-blue-900/20 to-purple-900/20 hover:border-blue-500/70' 
-                            : 'border-gray-700/50 bg-gray-900/30 hover:border-gray-600'
-                        }`}
+                        className={mark 
+                          ? 'border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-purple-500/5 hover:border-blue-500/50' 
+                          : 'hover:border-primary/50'
+                        }
                       >
+                        <CardContent className="pt-6">
                         {/* Exam Header */}
                         <div className="mb-4">
                           <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-semibold text-gray-100 text-lg flex items-center gap-2">
+                            <h4 className="font-semibold text-lg flex items-center gap-2">
                               {exam.displayName}
                             </h4>
                             {exam.examCategory && (
-                              <span className="px-2 py-1 text-xs rounded bg-gray-700 text-gray-300 flex-shrink-0">
+                              <Badge variant="secondary" className="flex-shrink-0">
                                 {exam.examCategory}
-                              </span>
+                              </Badge>
                             )}
                           </div>
-                            <div className="text-xs text-gray-400 space-y-1">
+                            <div className="text-xs text-muted-foreground space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span>📝 Total: {exam.totalMarks} marks</span>
                               {exam.scalingTarget && exam.scalingEnabled && (
@@ -803,43 +816,53 @@ export default function StudentCheckMarks() {
                           <>
                             {/* Marks Display */}
                             <div className="grid grid-cols-3 gap-2 mb-4">
-                              <div className="p-3 rounded-lg bg-blue-900/40 border border-blue-700/50 text-center">
-                                <div className="text-xs text-gray-400 mb-1">Raw</div>
-                                <div className="text-lg font-bold text-blue-300">
-                                  {mark.rawMark}
-                                </div>
-                                <div className="text-xs text-gray-500">/{exam.totalMarks}</div>
-                              </div>
+                              <Card className="bg-blue-500/10 border-blue-500/20">
+                                <CardContent className="p-3 text-center">
+                                  <div className="text-xs text-muted-foreground mb-1">Raw</div>
+                                  <div className="text-lg font-bold text-blue-400">
+                                    {mark.rawMark}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">/{exam.totalMarks}</div>
+                                </CardContent>
+                              </Card>
 
                               {exam.scalingEnabled && mark.scaledMark !== undefined && mark.scaledMark !== null ? (
-                                <div className="p-3 rounded-lg bg-emerald-900/40 border border-emerald-700/50 text-center">
-                                  <div className="text-xs text-gray-400 mb-1">Scaled</div>
-                                  <div className="text-lg font-bold text-emerald-300">
-                                    {mark.scaledMark.toFixed(2)}
-                                  </div>
-                                  {exam.scalingTarget && (
-                                    <div className="text-xs text-gray-500">/{exam.scalingTarget}</div>
-                                  )}
-                                </div>
+                                <Card className="bg-emerald-500/10 border-emerald-500/20">
+                                  <CardContent className="p-3 text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">Scaled</div>
+                                    <div className="text-lg font-bold text-emerald-400">
+                                      {mark.scaledMark.toFixed(2)}
+                                    </div>
+                                    {exam.scalingTarget && (
+                                      <div className="text-xs text-muted-foreground">/{exam.scalingTarget}</div>
+                                    )}
+                                  </CardContent>
+                                </Card>
                               ) : (
-                                <div className="p-3 rounded-lg bg-gray-700/30 border border-gray-600/50 text-center">
-                                  <div className="text-xs text-gray-400 mb-1">Scaled</div>
-                                  <div className="text-xs text-gray-500 italic">Not scaled</div>
-                                </div>
+                                <Card className="bg-muted/50">
+                                  <CardContent className="p-3 text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">Scaled</div>
+                                    <div className="text-xs text-muted-foreground italic">Not scaled</div>
+                                  </CardContent>
+                                </Card>
                               )}
 
                               {exam.scalingEnabled && mark.roundedMark !== undefined && mark.roundedMark !== null ? (
-                                <div className="p-3 rounded-lg bg-purple-900/40 border border-purple-700/50 text-center">
-                                  <div className="text-xs text-gray-400 mb-1">Final</div>
-                                  <div className="text-lg font-bold text-purple-300">
-                                    {mark.roundedMark}
-                                  </div>
-                                </div>
+                                <Card className="bg-purple-500/10 border-purple-500/20">
+                                  <CardContent className="p-3 text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">Final</div>
+                                    <div className="text-lg font-bold text-purple-400">
+                                      {mark.roundedMark}
+                                    </div>
+                                  </CardContent>
+                                </Card>
                               ) : (
-                                <div className="p-3 rounded-lg bg-gray-700/30 border border-gray-600/50 text-center">
-                                  <div className="text-xs text-gray-400 mb-1">Final</div>
-                                  <div className="text-xs text-gray-500 italic">N/A</div>
-                                </div>
+                                <Card className="bg-muted/50">
+                                  <CardContent className="p-3 text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">Final</div>
+                                    <div className="text-xs text-muted-foreground italic">N/A</div>
+                                  </CardContent>
+                                </Card>
                               )}
                             </div>
 
@@ -853,7 +876,8 @@ export default function StudentCheckMarks() {
                               const studentPercent = (studentMark / stats.highest) * 100;
 
                               return (
-                                <div className="p-3 rounded-lg bg-indigo-900/20 border border-indigo-700/50">
+                                <Card className="bg-indigo-500/5 border-indigo-500/20">
+                                  <CardContent className="p-3">
                                   <div className="text-xs font-medium text-gray-300 mb-3 flex items-center gap-2">
                                     <span>📊</span>
                                     <span>Class Performance</span>
@@ -922,61 +946,67 @@ export default function StudentCheckMarks() {
                                   <div className="mt-3 text-center">
                                     <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
                                       studentMark >= stats.average 
-                                        ? 'bg-green-900/40 text-green-300 border border-green-700/50' 
-                                        : 'bg-yellow-900/40 text-yellow-300 border border-yellow-700/50'
+                                        ? 'bg-green-500/20 text-green-400 border-green-500/30' 
+                                        : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
                                     }`}>
                                       {studentMark >= stats.average ? '🎯 Above Average' : '📈 Below Average'}
                                     </span>
                                   </div>
-                                </div>
+                                  </CardContent>
+                                </Card>
                               );
                             })()}
 
                             {/* CO Marks */}
                             {mark.coMarks && mark.coMarks.length > 0 && (
-                              <div className="mt-3 p-3 rounded-lg bg-gray-700/30 border border-gray-600/50">
-                                <div className="text-xs font-medium text-gray-300 mb-2">
-                                  CO Breakdown
-                                </div>
-                                <div className="grid grid-cols-3 gap-2">
-                                  {mark.coMarks.map((coMark, idx) => (
-                                    <div key={idx} className="text-center p-2 bg-gray-800/50 rounded">
-                                      <div className="text-xs text-gray-400">CO{idx + 1}</div>
-                                      <div className="text-sm font-semibold text-cyan-300">
-                                        {coMark}
+                              <Card className="mt-3 bg-muted/30">
+                                <CardContent className="p-3">
+                                  <div className="text-xs font-medium mb-2">
+                                    CO Breakdown
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {mark.coMarks.map((coMark, idx) => (
+                                      <div key={idx} className="text-center p-2 bg-muted rounded">
+                                        <div className="text-xs text-muted-foreground">CO{idx + 1}</div>
+                                        <div className="text-sm font-semibold text-cyan-400">
+                                          {coMark}
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
+                                    ))}
+                                  </div>
+                                </CardContent>
+                              </Card>
                             )}
 
                             {/* Question Marks */}
                             {mark.questionMarks && mark.questionMarks.length > 0 && (
-                              <div className="mt-3 p-3 rounded-lg bg-indigo-900/20 border border-indigo-700/50">
-                                <div className="text-xs font-medium text-gray-300 mb-2">
-                                  Question-wise Marks
-                                </div>
-                                <div className="grid grid-cols-4 gap-2">
-                                  {mark.questionMarks.map((qMark, idx) => (
-                                    <div key={idx} className="text-center p-2 bg-indigo-800/30 rounded">
-                                      <div className="text-xs text-gray-400">Q{idx + 1}</div>
-                                      <div className="text-sm font-semibold text-indigo-300">
-                                        {qMark}
+                              <Card className="mt-3 bg-indigo-500/5 border-indigo-500/20">
+                                <CardContent className="p-3">
+                                  <div className="text-xs font-medium mb-2">
+                                    Question-wise Marks
+                                  </div>
+                                  <div className="grid grid-cols-4 gap-2">
+                                    {mark.questionMarks.map((qMark, idx) => (
+                                      <div key={idx} className="text-center p-2 bg-indigo-500/10 rounded">
+                                        <div className="text-xs text-muted-foreground">Q{idx + 1}</div>
+                                        <div className="text-sm font-semibold text-indigo-400">
+                                          {qMark}
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
+                                    ))}
+                                  </div>
+                                </CardContent>
+                              </Card>
                             )}
                           </>
                         ) : (
-                          <div className="text-center py-8 text-gray-500 italic">
+                          <div className="text-center py-8 text-muted-foreground italic">
                             <div className="text-3xl mb-2">📝</div>
                             <div className="text-sm">Marks not recorded yet</div>
                           </div>
                         )}
-                      </div>
+                        </CardContent>
+                      </Card>
                     );
                   })}
                 </div>
