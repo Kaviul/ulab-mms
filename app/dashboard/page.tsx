@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Settings, LogOut, Plus, Upload, Copy, Edit, Trash2, BookOpen, FlaskConical } from 'lucide-react';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface Course {
   _id: string;
@@ -317,6 +318,7 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-3">
+              <ThemeToggle />
               <Button variant="outline" asChild>
                 <Link href="/settings">
                   <Settings className="h-4 w-4 mr-2" />
