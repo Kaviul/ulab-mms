@@ -6,7 +6,65 @@ import Mark from '@/models/Mark';
 import Student from '@/models/Student';
 import Exam from '@/models/Exam';
 
-// POST create or update a mark
+// Helper function to handle bulk mark creation
+async function handleBulkCreate(marksArray: any[], userId: string) {
+  try {
+    await dbConnect();
+
+    const createdMarks = [];
+    
+    for (const markData of marksArray) {
+      const { studentId, examId, rawMark } = markData;
+      
+      if (!studentId || !examId || rawMark === undefined) {
+        continue; // Skip invalid entries
+      }
+
+      // Verify student and exam belong to user
+      const [student, exam] = await Promise.all([
+        Student.findOne({ _id: studentId, userId }),
+        Exam.findOne({ _id: examId, userId }),
+      ]);
+
+      if (!student || !exam) {
+        continue; // Skip if student or exam not found
+      }
+
+      // Check if mark already exists
+      const existingMark = await Mark.findOne({ studentId, examId });
+      if (existingMark) {
+        continue; // Skip if mark already exists
+      }
+
+      // Create the mark
+      const mark = await Mark.create({
+        studentId,
+        examId,
+        courseId: exam.courseId,
+        userId,
+        rawMark,
+      });
+
+      createdMarks.push(mark);
+    }
+
+    return NextResponse.json(
+      { 
+        message: `Successfully created ${createdMarks.length} marks`,
+        marks: createdMarks 
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error('Bulk create marks error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST create or update a mark (or bulk create marks)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,7 +73,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { studentId, examId, courseId, rawMark, coMarks, questionMarks } = await request.json();
+    const body = await request.json();
+    
+    // Check if this is a bulk create request
+    if (body.marks && Array.isArray(body.marks)) {
+      return await handleBulkCreate(body.marks, session.user.id);
+    }
+
+    const { studentId, examId, courseId, rawMark, coMarks, questionMarks } = body;
 
     if (!studentId || !examId || !courseId || rawMark === undefined) {
       return NextResponse.json(
@@ -133,6 +198,48 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ mark }, { status: 201 });
   } catch (error: any) {
     console.error('Create/update mark error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE bulk delete marks
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { markIds } = await request.json();
+
+    if (!markIds || !Array.isArray(markIds) || markIds.length === 0) {
+      return NextResponse.json(
+        { error: 'Please provide mark IDs to delete' },
+        { status: 400 }
+      );
+    }
+
+    await dbConnect();
+
+    // Delete marks that belong to the user
+    const result = await Mark.deleteMany({
+      _id: { $in: markIds },
+      userId: session.user.id,
+    });
+
+    return NextResponse.json(
+      { 
+        message: `Successfully deleted ${result.deletedCount} marks`,
+        deletedCount: result.deletedCount 
+      },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error('Delete marks error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

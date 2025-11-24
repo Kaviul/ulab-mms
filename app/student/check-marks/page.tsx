@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 
@@ -425,11 +426,14 @@ export default function StudentCheckMarks() {
               </div>
             </div>
 
-            <Button variant="outline" asChild>
-              <Link href="/auth/signin">
-                ← Back to Sign In
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button variant="outline" asChild>
+                <Link href="/auth/signin">
+                  ← Back to Sign In
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
@@ -487,7 +491,7 @@ export default function StudentCheckMarks() {
         {searched && courses.length > 0 && (
           <>
             {/* Student Info */}
-            <Card className="mb-6 border-primary/20">
+            <Card className="mb-6 border-blue-400/30 bg-blue-500/5">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-2xl">
@@ -515,7 +519,7 @@ export default function StudentCheckMarks() {
                 return (
                   <Card
                     key={courseData.course._id}
-                    className="cursor-pointer hover:border-primary transition-colors"
+                    className="cursor-pointer border-blue-400/30 bg-blue-500/5 hover:border-blue-400/50 hover:bg-blue-500/10 transition-colors"
                     onClick={() => {
                       setSelectedCourse(courseData);
                       setShowCourseModal(true);

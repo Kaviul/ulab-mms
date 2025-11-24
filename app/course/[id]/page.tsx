@@ -135,6 +135,10 @@ export default function CoursePage() {
   const [searchStudentId, setSearchStudentId] = useState('');
   const [showStudentStatsModal, setShowStudentStatsModal] = useState(false);
   const [selectedStudentForStats, setSelectedStudentForStats] = useState<Student | null>(null);
+  const [showSetZeroModal, setShowSetZeroModal] = useState(false);
+  const [showResetMarksModal, setShowResetMarksModal] = useState(false);
+  const [selectedExamsForAction, setSelectedExamsForAction] = useState<string[]>([]);
+  const [confirmationStep, setConfirmationStep] = useState(0);
   
   const [csvInput, setCsvInput] = useState('');
   const [examFormData, setExamFormData] = useState({
@@ -292,6 +296,90 @@ export default function CoursePage() {
     } catch (err) {
       console.error('Error applying scaling:', err);
       alert('Error applying scaling');
+    }
+  };
+
+  const handleSetEmptyMarksToZero = async (examIds: string[]) => {
+    try {
+      const marksToCreate = [];
+      const targetExams = examIds.length === 0 ? exams : exams.filter(e => examIds.includes(e._id));
+      
+      for (const student of students) {
+        for (const exam of targetExams) {
+          const existingMark = marks.find(
+            m => m.studentId === student._id && m.examId === exam._id
+          );
+          
+          if (!existingMark) {
+            marksToCreate.push({
+              studentId: student._id,
+              examId: exam._id,
+              rawMark: 0,
+            });
+          }
+        }
+      }
+
+      if (marksToCreate.length === 0) {
+        alert('All students already have marks for selected exams!');
+        setShowSetZeroModal(false);
+        setConfirmationStep(0);
+        return;
+      }
+
+      const response = await fetch('/api/marks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ marks: marksToCreate }),
+      });
+
+      if (response.ok) {
+        await fetchCourseData();
+        alert(`Successfully set ${marksToCreate.length} empty marks to 0!`);
+        setShowSetZeroModal(false);
+        setConfirmationStep(0);
+      } else {
+        const data = await response.json();
+        alert(`Error: ${data.error || 'Failed to set marks'}`);
+      }
+    } catch (err) {
+      console.error('Error setting empty marks to zero:', err);
+      alert('Error setting empty marks to zero');
+    }
+  };
+
+  const handleResetMarks = async (examIds: string[]) => {
+    try {
+      const targetExams = examIds.length === 0 ? exams : exams.filter(e => examIds.includes(e._id));
+      const examIdsToDelete = targetExams.map(e => e._id);
+      
+      const marksToDelete = marks.filter(m => examIdsToDelete.includes(m.examId));
+
+      if (marksToDelete.length === 0) {
+        alert('No marks found for selected exams!');
+        setShowResetMarksModal(false);
+        setConfirmationStep(0);
+        return;
+      }
+
+      const response = await fetch('/api/marks', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markIds: marksToDelete.map(m => m._id) }),
+      });
+
+      if (response.ok) {
+        await fetchCourseData();
+        alert(`Successfully deleted ${marksToDelete.length} marks!`);
+        setShowResetMarksModal(false);
+        setConfirmationStep(0);
+      } else {
+        const data = await response.json();
+        alert(`Error: ${data.error || 'Failed to delete marks'}`);
+      }
+    } catch (err) {
+      console.error('Error resetting marks:', err);
+      alert('Error resetting marks');
     }
   };
 
@@ -1828,7 +1916,7 @@ export default function CoursePage() {
                     Add and manage marks for {students.length} student(s) across {exams.length} exam(s). Click on each mark to add or edit.
                   </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-wrap">
                   <button
                     onClick={() => {
                       setInitialExamId(undefined);
@@ -1837,8 +1925,33 @@ export default function CoursePage() {
                     }}
                     className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all font-medium flex items-center gap-2"
                   >
-                    ✏️ Add Mark
+                    <Plus className="w-5 h-5" />
+                    Add Mark
                   </button>
+                  <Button
+                    onClick={() => {
+                      setSelectedExamsForAction([]);
+                      setConfirmationStep(0);
+                      setShowSetZeroModal(true);
+                    }}
+                    variant="outline"
+                    className="gap-2 border-blue-500/50 hover:bg-blue-500/10"
+                  >
+                    <span>0️⃣</span>
+                    Set Empty Marks to 0
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setSelectedExamsForAction([]);
+                      setConfirmationStep(0);
+                      setShowResetMarksModal(true);
+                    }}
+                    variant="outline"
+                    className="gap-2 border-red-500/50 hover:bg-red-500/10"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Reset Marks
+                  </Button>
                 </div>
                 <Card className="p-6">
                   <div className="overflow-x-auto">
@@ -3190,6 +3303,334 @@ export default function CoursePage() {
         </div>
       </div>
     )}
+
+    {/* Set Empty Marks to Zero Modal */}
+    <Dialog open={showSetZeroModal} onOpenChange={(open) => {
+      if (!open) {
+        setShowSetZeroModal(false);
+        setSelectedExamsForAction([]);
+        setConfirmationStep(0);
+      }
+    }}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span>0️⃣</span>
+            Set Empty Marks to 0
+          </DialogTitle>
+          <DialogDescription>
+            {confirmationStep === 0 && 'Select exams to set empty marks to 0. Empty marks will be created with value 0.'}
+            {confirmationStep === 1 && 'Review your selection and confirm the action.'}
+            {confirmationStep === 2 && 'FINAL CONFIRMATION: This action cannot be undone!'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {confirmationStep === 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="all-exams-zero"
+                  checked={selectedExamsForAction.length === 0}
+                  onCheckedChange={(checked) => {
+                    setSelectedExamsForAction(checked ? [] : exams.map(e => e._id));
+                  }}
+                />
+                <Label htmlFor="all-exams-zero" className="font-semibold cursor-pointer">
+                  All Exams ({exams.length})
+                </Label>
+              </div>
+              <Badge variant="secondary">{exams.length} exams</Badge>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Individual Exams:</div>
+              {exams.map(exam => (
+                <div key={exam._id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`exam-zero-${exam._id}`}
+                      checked={selectedExamsForAction.length === 0 || selectedExamsForAction.includes(exam._id)}
+                      disabled={selectedExamsForAction.length === 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedExamsForAction([...selectedExamsForAction, exam._id]);
+                        } else {
+                          setSelectedExamsForAction(selectedExamsForAction.filter(id => id !== exam._id));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`exam-zero-${exam._id}`} className="cursor-pointer">
+                      {exam.displayName}
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{exam.totalMarks} marks</span>
+                    {exam.examCategory && (
+                      <Badge variant="outline">{exam.examCategory}</Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {confirmationStep === 1 && (
+          <Alert>
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="font-semibold">You are about to set empty marks to 0 for:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  {selectedExamsForAction.length === 0 ? (
+                    <li>All {exams.length} exams</li>
+                  ) : (
+                    selectedExamsForAction.map(examId => {
+                      const exam = exams.find(e => e._id === examId);
+                      return exam ? <li key={examId}>{exam.displayName}</li> : null;
+                    })
+                  )}
+                </ul>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  This will create mark entries with value 0 for all students who don't have marks for these exams.
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {confirmationStep === 2 && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              <div className="space-y-3">
+                <p className="font-bold text-lg">⚠️ FINAL CONFIRMATION</p>
+                <p>This is your last chance to cancel. Once you proceed, empty marks will be set to 0 for the selected exams.</p>
+                <p className="text-sm">Type <strong>"CONFIRM"</strong> below to proceed:</p>
+                <Input
+                  id="final-confirm-zero"
+                  placeholder="Type CONFIRM"
+                  className="mt-2"
+                />
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <DialogFooter className="flex gap-2">
+          {confirmationStep > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setConfirmationStep(confirmationStep - 1)}
+            >
+              Back
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShowSetZeroModal(false);
+              setSelectedExamsForAction([]);
+              setConfirmationStep(0);
+            }}
+          >
+            Cancel
+          </Button>
+          {confirmationStep < 2 && (
+            <Button
+              onClick={() => setConfirmationStep(confirmationStep + 1)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Next
+            </Button>
+          )}
+          {confirmationStep === 2 && (
+            <Button
+              onClick={() => {
+                const input = document.getElementById('final-confirm-zero') as HTMLInputElement;
+                if (input?.value === 'CONFIRM') {
+                  handleSetEmptyMarksToZero(selectedExamsForAction);
+                } else {
+                  alert('Please type CONFIRM to proceed');
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Set to Zero
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Reset Marks Modal */}
+    <Dialog open={showResetMarksModal} onOpenChange={(open) => {
+      if (!open) {
+        setShowResetMarksModal(false);
+        setSelectedExamsForAction([]);
+        setConfirmationStep(0);
+      }
+    }}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="w-5 h-5" />
+            Reset Marks (Delete)
+          </DialogTitle>
+          <DialogDescription>
+            {confirmationStep === 0 && 'Select exams to reset. This will DELETE all marks for the selected exams.'}
+            {confirmationStep === 1 && 'Review your selection and confirm the deletion.'}
+            {confirmationStep === 2 && 'FINAL CONFIRMATION: This action PERMANENTLY deletes marks and CANNOT be undone!'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {confirmationStep === 0 && (
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <AlertDescription>
+                ⚠️ Warning: This will permanently delete all marks for the selected exams. This action cannot be undone!
+              </AlertDescription>
+            </Alert>
+
+            <div className="flex items-center justify-between p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="all-exams-reset"
+                  checked={selectedExamsForAction.length === 0}
+                  onCheckedChange={(checked) => {
+                    setSelectedExamsForAction(checked ? [] : exams.map(e => e._id));
+                  }}
+                />
+                <Label htmlFor="all-exams-reset" className="font-semibold cursor-pointer">
+                  All Exams ({exams.length})
+                </Label>
+              </div>
+              <Badge variant="destructive">{exams.length} exams</Badge>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Individual Exams:</div>
+              {exams.map(exam => {
+                const examMarksCount = marks.filter(m => m.examId === exam._id).length;
+                return (
+                  <div key={exam._id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`exam-reset-${exam._id}`}
+                        checked={selectedExamsForAction.length === 0 || selectedExamsForAction.includes(exam._id)}
+                        disabled={selectedExamsForAction.length === 0}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedExamsForAction([...selectedExamsForAction, exam._id]);
+                          } else {
+                            setSelectedExamsForAction(selectedExamsForAction.filter(id => id !== exam._id));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`exam-reset-${exam._id}`} className="cursor-pointer">
+                        {exam.displayName}
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <Badge variant="secondary">{examMarksCount} marks</Badge>
+                      {exam.examCategory && (
+                        <Badge variant="outline">{exam.examCategory}</Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {confirmationStep === 1 && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="font-semibold">⚠️ You are about to DELETE all marks for:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  {selectedExamsForAction.length === 0 ? (
+                    <li>All {exams.length} exams ({marks.length} total marks)</li>
+                  ) : (
+                    selectedExamsForAction.map(examId => {
+                      const exam = exams.find(e => e._id === examId);
+                      const count = marks.filter(m => m.examId === examId).length;
+                      return exam ? <li key={examId}>{exam.displayName} ({count} marks)</li> : null;
+                    })
+                  )}
+                </ul>
+                <p className="mt-3 font-semibold">
+                  Total marks to be deleted: {selectedExamsForAction.length === 0 
+                    ? marks.length 
+                    : marks.filter(m => selectedExamsForAction.includes(m.examId)).length}
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {confirmationStep === 2 && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              <div className="space-y-3">
+                <p className="font-bold text-lg">🚨 FINAL CONFIRMATION</p>
+                <p className="font-semibold">This action will PERMANENTLY DELETE marks and CANNOT be recovered!</p>
+                <p className="text-sm">Type <strong>"DELETE"</strong> below to proceed:</p>
+                <Input
+                  id="final-confirm-reset"
+                  placeholder="Type DELETE"
+                  className="mt-2 border-red-500"
+                />
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <DialogFooter className="flex gap-2">
+          {confirmationStep > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setConfirmationStep(confirmationStep - 1)}
+            >
+              Back
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShowResetMarksModal(false);
+              setSelectedExamsForAction([]);
+              setConfirmationStep(0);
+            }}
+          >
+            Cancel
+          </Button>
+          {confirmationStep < 2 && (
+            <Button
+              onClick={() => setConfirmationStep(confirmationStep + 1)}
+              variant="destructive"
+            >
+              Next
+            </Button>
+          )}
+          {confirmationStep === 2 && (
+            <Button
+              onClick={() => {
+                const input = document.getElementById('final-confirm-reset') as HTMLInputElement;
+                if (input?.value === 'DELETE') {
+                  handleResetMarks(selectedExamsForAction);
+                } else {
+                  alert('Please type DELETE to proceed');
+                }
+              }}
+              variant="destructive"
+            >
+              Delete Marks
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
