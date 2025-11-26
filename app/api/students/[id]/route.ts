@@ -8,7 +8,7 @@ import Mark from '@/models/Mark';
 // PUT (update) a student
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,7 +17,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const studentId = params.id;
+    const { id } = await context.params;
+    const studentId = id;
     const body = await request.json();
     const { studentId: newStudentId, name } = body;
 
@@ -78,7 +79,7 @@ export async function PUT(
 // DELETE a student
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -87,7 +88,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const studentId = params.id;
+    const { id } = await context.params;
+    const studentId = id;
 
     await dbConnect();
 
