@@ -12,34 +12,39 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     const theme = savedTheme || 'dark'; // Default to dark if not set
     
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.body.classList.remove('bg-gray-100');
-      document.body.classList.add('bg-gray-900');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.body.classList.remove('bg-gray-900');
-      document.body.classList.add('bg-gray-100');
-    }
+    const applyTheme = (newTheme: 'light' | 'dark') => {
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      console.log(`${newTheme} mode applied`);
+    };
+    
+    applyTheme(theme);
+
+    // Listen for theme changes from ThemeToggle component
+    const handleThemeChange = (e: CustomEvent) => {
+      applyTheme(e.detail.theme);
+    };
 
     // Listen for storage changes to sync theme across tabs
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'theme') {
         const newTheme = e.newValue as 'light' | 'dark' | null;
-        if (newTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-          document.body.classList.remove('bg-gray-100');
-          document.body.classList.add('bg-gray-900');
-        } else {
-          document.documentElement.classList.remove('dark');
-          document.body.classList.remove('bg-gray-900');
-          document.body.classList.add('bg-gray-100');
+        if (newTheme) {
+          applyTheme(newTheme);
         }
       }
     };
 
+    window.addEventListener('themeChange', handleThemeChange as EventListener);
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('themeChange', handleThemeChange as EventListener);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // Prevent flash of unstyled content

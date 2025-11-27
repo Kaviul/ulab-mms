@@ -5,6 +5,15 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Settings, LogOut, Plus, Upload, Copy, Edit, Trash2, BookOpen, FlaskConical } from 'lucide-react';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface Course {
   _id: string;
@@ -21,13 +30,15 @@ export default function Dashboard() {
   const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [duplicatingCourse, setDuplicatingCourse] = useState<Course | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -42,6 +53,13 @@ export default function Dashboard() {
     year: new Date().getFullYear(),
     courseType: 'Theory' as 'Theory' | 'Lab',
   });
+  const [duplicateFormData, setDuplicateFormData] = useState({
+    name: '',
+    code: '',
+    semester: 'Spring',
+    year: new Date().getFullYear(),
+    courseType: 'Theory' as 'Theory' | 'Lab',
+  });
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -49,33 +67,6 @@ export default function Dashboard() {
       fetchCourses();
     }
   }, [status]);
-
-  useEffect(() => {
-    // Load theme from localStorage
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-
-    // Listen for storage changes and custom events
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'theme') {
-        setTheme((e.newValue as 'light' | 'dark') || 'dark');
-      }
-    };
-
-    const handleThemeChange = (e: CustomEvent) => {
-      setTheme(e.detail.theme);
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('themeChange' as any, handleThemeChange as any);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('themeChange' as any, handleThemeChange as any);
-    };
-  }, []);
 
   const fetchCourses = async () => {
     try {
@@ -187,6 +178,18 @@ export default function Dashboard() {
     setShowEditModal(true);
   };
 
+  const openDuplicateModal = (course: Course) => {
+    setDuplicatingCourse(course);
+    setDuplicateFormData({
+      name: `${course.name} (Copy)`,
+      code: `${course.code}-COPY`,
+      semester: course.semester,
+      year: course.year,
+      courseType: course.courseType,
+    });
+    setShowDuplicateModal(true);
+  };
+
   const handleImportCourse = async () => {
     if (!importFile) {
       alert('Please select a file to import');
@@ -228,30 +231,72 @@ export default function Dashboard() {
     }
   };
 
+  const handleDuplicateCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!duplicatingCourse) return;
+
+    setDuplicating(true);
+    try {
+      // First, export the course data
+      const exportResponse = await fetch(`/api/courses/${duplicatingCourse._id}/export`);
+      if (!exportResponse.ok) {
+        throw new Error('Failed to export course data');
+      }
+      const courseData = await exportResponse.json();
+
+      // Update the course data with new details
+      courseData.course.name = duplicateFormData.name;
+      courseData.course.code = duplicateFormData.code;
+      courseData.course.semester = duplicateFormData.semester;
+      courseData.course.year = duplicateFormData.year;
+      courseData.course.courseType = duplicateFormData.courseType;
+
+      // Import as a new course
+      const importResponse = await fetch('/api/courses/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(courseData),
+      });
+
+      if (importResponse.ok) {
+        const data = await importResponse.json();
+        alert(`Course "${data.course.name}" duplicated successfully!`);
+        setShowDuplicateModal(false);
+        setDuplicatingCourse(null);
+        setDuplicateFormData({
+          name: '',
+          code: '',
+          semester: 'Spring',
+          year: new Date().getFullYear(),
+          courseType: 'Theory',
+        });
+        await fetchCourses(); // Refresh the course list
+      } else {
+        const data = await importResponse.json();
+        setError(data.error || 'Error duplicating course');
+      }
+    } catch (err) {
+      console.error('Duplicate error:', err);
+      setError('Error duplicating course. Please try again.');
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   if (status === 'loading' || loading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center transition-colors ${
-        theme === 'dark' 
-          ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900' 
-          : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
-      }`}>
-        <div className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen transition-colors ${
-      theme === 'dark' 
-        ? 'bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900' 
-        : 'bg-gradient-to-br from-gray-100 via-slate-100 to-gray-100'
-    }`}>
+    <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <nav className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors ${
-        theme === 'dark'
-          ? 'bg-gray-900/80 border-gray-700'
-          : 'bg-white/80 border-gray-300'
-      }`}>
+      <nav className="sticky top-0 z-50 backdrop-blur-md border-b bg-background/80">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -266,29 +311,27 @@ export default function Dashboard() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                   Marks Management System
                 </h1>
-                <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className="text-xs text-muted-foreground">
                   Welcome, {session?.user?.name}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <Link
-                href="/settings"
-                className={`px-4 py-2 rounded-lg transition-all font-medium text-sm ${
-                  theme === 'dark'
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                    : 'bg-gray-300 hover:bg-gray-400 text-gray-900'
-                }`}
-              >
-                ⚙️ Settings
-              </Link>
-              <button
+              <ThemeToggle />
+              <Button variant="outline" asChild>
+                <Link href="/settings">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Link>
+              </Button>
+              <Button
+                variant="destructive"
                 onClick={() => signOut({ callbackUrl: '/auth/signin' })}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all font-medium text-sm"
               >
+                <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -298,445 +341,524 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className={`text-3xl font-bold mb-2 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
+            <h2 className="text-3xl font-bold mb-2">
               My Courses
             </h2>
-            <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-700'}>
+            <p className="text-muted-foreground">
               Manage your courses and student marks
             </p>
           </div>
           <div className="flex gap-3">
-            <button
+            <Button
+              variant="outline"
               onClick={() => setShowImportModal(true)}
-              className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-lg shadow-indigo-900/50 font-medium"
             >
-              📥 Import Course
-            </button>
-            <button
+              <Upload className="h-4 w-4 mr-2" />
+              Import Course
+            </Button>
+            <Button
               onClick={() => setShowAddModal(true)}
-              className="px-5 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-900/50 font-medium"
             >
-              ➕ Add Course
-            </button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Course
+            </Button>
           </div>
         </div>
 
         {/* Courses Grid */}
         {courses.length === 0 ? (
-          <div className={`rounded-xl shadow-2xl border p-12 text-center transition-colors ${
-            theme === 'dark'
-              ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50'
-              : 'bg-white border-gray-300'
-          }`}>
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-100'
-            }`}>
-              <span className="text-4xl">📚</span>
-            </div>
-            <h3 className={`text-lg font-medium mb-2 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
-              No Courses Yet
-            </h3>
-            <p className={`mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-              Get started by creating your first course
-            </p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-900/50 font-medium"
-            >
-              ➕ Create Course
-            </button>
-          </div>
+          <Card className="text-center py-12">
+            <CardContent>
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <span className="text-4xl">📚</span>
+              </div>
+              <CardTitle className="mb-2">
+                No Courses Yet
+              </CardTitle>
+              <CardDescription className="mb-6">
+                Get started by creating your first course
+              </CardDescription>
+              <Button onClick={() => setShowAddModal(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Course
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course) => (
-              <div
+              <Card
                 key={course._id}
-                className={`rounded-xl shadow-xl border p-6 hover:shadow-2xl transition-all group ${
-                  theme === 'dark'
-                    ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50 hover:border-gray-600/50'
-                    : 'bg-white border-gray-300 hover:border-gray-400'
-                }`}
+                className="hover:shadow-lg transition-shadow"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                    course.courseType === 'Theory' 
-                      ? 'bg-gradient-to-br from-blue-600 to-cyan-600' 
-                      : 'bg-gradient-to-br from-purple-600 to-pink-600'
-                  }`}>
-                    <span className="text-2xl">{course.courseType === 'Theory' ? '📖' : '🔬'}</span>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      course.courseType === 'Theory' 
+                        ? 'bg-gradient-to-br from-blue-600 to-cyan-600' 
+                        : 'bg-gradient-to-br from-purple-600 to-pink-600'
+                    }`}>
+                      {course.courseType === 'Theory' ? (
+                        <BookOpen className="h-6 w-6 text-white" />
+                      ) : (
+                        <FlaskConical className="h-6 w-6 text-white" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openDuplicateModal(course)}
+                        title="Duplicate course"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditModal(course)}
+                        title="Edit course"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteCourse(course._id)}
+                        title="Delete course"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => openEditModal(course)}
-                      className="px-2 py-1 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded transition-all"
-                      title="Edit course"
-                    >
-                      ⚙️
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCourse(course._id)}
-                      className="px-2 py-1 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-all"
-                      title="Delete course"
-                    >
-                      🗑️
-                    </button>
+                  <CardTitle className="mt-4">{course.name}</CardTitle>
+                  <CardDescription>{course.code}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Badge variant="secondary" className="mb-4">
+                    {course.courseType} Course
+                  </Badge>
+                  <div className="flex items-center gap-2 text-sm mb-4">
+                    <Badge variant="outline">{course.semester}</Badge>
+                    <Badge variant="outline">{course.year}</Badge>
                   </div>
-                </div>
-
-                <h3 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>
-                  {course.name}
-                </h3>
-                <p className="text-blue-400 font-medium mb-1">
-                  {course.code}
-                </p>
-                <p className={`text-xs font-medium mb-4 ${
-                  course.courseType === 'Theory' ? 'text-cyan-400' : 'text-pink-400'
-                }`}>
-                  {course.courseType} Course
-                </p>
-                <div className="flex items-center gap-2 text-sm mb-4">
-                  <span className={`px-2 py-1 rounded ${theme === 'dark' ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-200 text-gray-800'}`}>
-                    {course.semester}
-                  </span>
-                  <span className={`px-2 py-1 rounded ${theme === 'dark' ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
-                    {course.year}
-                  </span>
-                </div>
-
-                <Link
-                  href={`/course/${course._id}`}
-                  className="block w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-center rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-medium"
-                >
-                  Open Course →
-                </Link>
-              </div>
+                </CardContent>
+                <CardFooter>
+                  <Button asChild className="w-full">
+                    <Link href={`/course/${course._id}`}>
+                      Open Course →
+                    </Link>
+                  </Button>
+                </CardFooter>
+              </Card>
             ))}
           </div>
         )}
       </div>
 
       {/* Add Course Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className={`rounded-2xl shadow-2xl max-w-md w-full border p-6 transition-colors ${
-            theme === 'dark'
-              ? 'bg-gradient-to-br from-gray-800 to-gray-800/80 border-gray-700/50'
-              : 'bg-white border-gray-300'
-          }`}>
-            <h2 className={`text-2xl font-bold mb-6 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>
-              Add New Course
-            </h2>
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Course</DialogTitle>
+          </DialogHeader>
 
-            {error && (
-              <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
-                {error}
-              </div>
-            )}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-            <form onSubmit={handleAddCourse} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Course Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
-                  placeholder="e.g., Data Structures"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Course Code
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.code}
-                  onChange={(e) =>
-                    setFormData({ ...formData, code: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
-                  placeholder="e.g., CSE201"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Semester
-                </label>
-                <select
-                  value={formData.semester}
-                  onChange={(e) =>
-                    setFormData({ ...formData, semester: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
-                >
-                  <option value="Spring">Spring</option>
-                  <option value="Summer">Summer</option>
-                  <option value="Fall">Fall</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Year
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="2000"
-                  max="2100"
-                  value={formData.year}
-                  onChange={(e) =>
-                    setFormData({ ...formData, year: parseInt(e.target.value) })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Course Type
-                </label>
-                <select
-                  value={formData.courseType}
-                  onChange={(e) =>
-                    setFormData({ ...formData, courseType: e.target.value as 'Theory' | 'Lab' })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
-                >
-                  <option value="Theory">Theory Course</option>
-                  <option value="Lab">Lab Course</option>
-                </select>
-                <p className="mt-2 text-xs text-gray-500">
-                  {formData.courseType === 'Theory' 
-                    ? '📖 Theory courses include Midterm and Final exams with CO breakdown'
-                    : '🔬 Lab courses include Lab Final and OEL/CE Project'}
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setError('');
-                  }}
-                  className="flex-1 px-4 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-all font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg font-medium"
-                >
-                  Create Course
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Course Modal */}
-      {showEditModal && editingCourse && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-2xl shadow-2xl max-w-md w-full border border-gray-700/50 p-6">
-            <h2 className="text-2xl font-bold text-gray-100 mb-6">
-              Edit Course
-            </h2>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleEditCourse} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Course Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editFormData.name}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, name: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
-                  placeholder="e.g., Data Structures"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Course Code
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editFormData.code}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, code: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-500"
-                  placeholder="e.g., CSE201"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Semester
-                </label>
-                <select
-                  value={editFormData.semester}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, semester: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
-                >
-                  <option value="Spring">Spring</option>
-                  <option value="Summer">Summer</option>
-                  <option value="Fall">Fall</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Year
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="2000"
-                  max="2100"
-                  value={editFormData.year}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, year: parseInt(e.target.value) })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Course Type
-                </label>
-                <select
-                  value={editFormData.courseType}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, courseType: e.target.value as 'Theory' | 'Lab' })
-                  }
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100"
-                >
-                  <option value="Theory">Theory Course</option>
-                  <option value="Lab">Lab Course</option>
-                </select>
-                <p className="mt-2 text-xs text-gray-500">
-                  {editFormData.courseType === 'Theory' 
-                    ? '📖 Theory courses include Midterm and Final exams with CO breakdown'
-                    : '🔬 Lab courses include Lab Final and OEL/CE Project'}
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingCourse(null);
-                    setError('');
-                  }}
-                  className="flex-1 px-4 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-all font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-lg font-medium"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Import Course Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-2xl shadow-2xl max-w-md w-full border border-gray-700/50 p-6">
-            <h2 className="text-2xl font-bold text-gray-100 mb-6">
-              Import Course
-            </h2>
-
-            <div className="mb-6">
-              <p className="text-gray-300 text-sm mb-4">
-                Select a course backup JSON file to import. This will create a new course with all students, exams, and marks from the backup.
-              </p>
-              
-              <div className="bg-amber-900/20 border border-amber-600/50 rounded-lg p-4 mb-4">
-                <p className="text-amber-200 text-sm">
-                  ⚠️ This will create a new course. The imported data will not affect existing courses.
-                </p>
-              </div>
-
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Select JSON Backup File
-              </label>
-              <input
-                type="file"
-                accept=".json"
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-100 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"
+          <form onSubmit={handleAddCourse} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="course-name">Course Name</Label>
+              <Input
+                id="course-name"
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                placeholder="e.g., Data Structures"
               />
-              {importFile && (
-                <p className="mt-2 text-sm text-gray-400">
-                  Selected: {importFile.name}
-                </p>
-              )}
             </div>
 
-            <div className="flex gap-3">
-              <button
+            <div className="space-y-2">
+              <Label htmlFor="course-code">Course Code</Label>
+              <Input
+                id="course-code"
+                type="text"
+                required
+                value={formData.code}
+                onChange={(e) =>
+                  setFormData({ ...formData, code: e.target.value })
+                }
+                placeholder="e.g., CSE201"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="semester">Semester</Label>
+              <select
+                id="semester"
+                value={formData.semester}
+                onChange={(e) =>
+                  setFormData({ ...formData, semester: e.target.value })
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="Spring">Spring</option>
+                <option value="Summer">Summer</option>
+                <option value="Fall">Fall</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="year">Year</Label>
+              <Input
+                id="year"
+                type="number"
+                required
+                min="2000"
+                max="2100"
+                value={formData.year}
+                onChange={(e) =>
+                  setFormData({ ...formData, year: parseInt(e.target.value) })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="course-type">Course Type</Label>
+              <select
+                id="course-type"
+                value={formData.courseType}
+                onChange={(e) =>
+                  setFormData({ ...formData, courseType: e.target.value as 'Theory' | 'Lab' })
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="Theory">Theory Course</option>
+                <option value="Lab">Lab Course</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {formData.courseType === 'Theory' 
+                  ? '📖 Theory courses include Midterm and Final exams with CO breakdown'
+                  : '🔬 Lab courses include Lab Final and OEL/CE Project'}
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
-                  setShowImportModal(false);
-                  setImportFile(null);
+                  setShowAddModal(false);
+                  setError('');
                 }}
-                className="flex-1 px-4 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-all font-medium"
               >
                 Cancel
-              </button>
-              <button
-                onClick={handleImportCourse}
-                disabled={!importFile || importing}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              </Button>
+              <Button type="submit">Create Course</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Course Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Course</DialogTitle>
+          </DialogHeader>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleEditCourse} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-course-name">Course Name</Label>
+              <Input
+                id="edit-course-name"
+                type="text"
+                required
+                value={editFormData.name}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, name: e.target.value })
+                }
+                placeholder="e.g., Data Structures"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-course-code">Course Code</Label>
+              <Input
+                id="edit-course-code"
+                type="text"
+                required
+                value={editFormData.code}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, code: e.target.value })
+                }
+                placeholder="e.g., CSE201"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-semester">Semester</Label>
+              <select
+                id="edit-semester"
+                value={editFormData.semester}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, semester: e.target.value })
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                {importing ? (
+                <option value="Spring">Spring</option>
+                <option value="Summer">Summer</option>
+                <option value="Fall">Fall</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-year">Year</Label>
+              <Input
+                id="edit-year"
+                type="number"
+                required
+                min="2000"
+                max="2100"
+                value={editFormData.year}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, year: parseInt(e.target.value) })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-course-type">Course Type</Label>
+              <select
+                id="edit-course-type"
+                value={editFormData.courseType}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, courseType: e.target.value as 'Theory' | 'Lab' })
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="Theory">Theory Course</option>
+                <option value="Lab">Lab Course</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {editFormData.courseType === 'Theory' 
+                  ? '📖 Theory courses include Midterm and Final exams with CO breakdown'
+                  : '🔬 Lab courses include Lab Final and OEL/CE Project'}
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingCourse(null);
+                  setError('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Course Modal */}
+      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Import Course</DialogTitle>
+            <DialogDescription>
+              Select a course backup JSON file to import. This will create a new course with all students, exams, and marks from the backup.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Alert>
+            <AlertDescription>
+              ⚠️ This will create a new course. The imported data will not affect existing courses.
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-2">
+            <Label htmlFor="import-file">Select JSON Backup File</Label>
+            <Input
+              id="import-file"
+              type="file"
+              accept=".json"
+              onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+            />
+            {importFile && (
+              <p className="text-sm text-muted-foreground">
+                Selected: {importFile.name}
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowImportModal(false);
+                setImportFile(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleImportCourse}
+              disabled={!importFile || importing}
+            >
+              {importing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                'Import Course'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Course Modal */}
+      <Dialog open={showDuplicateModal} onOpenChange={setShowDuplicateModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Duplicate Course</DialogTitle>
+            <DialogDescription>
+              This will create a new course with all students, exams, and marks from <strong>{duplicatingCourse?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleDuplicateCourse} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="dup-course-name">Course Name</Label>
+              <Input
+                id="dup-course-name"
+                type="text"
+                required
+                value={duplicateFormData.name}
+                onChange={(e) =>
+                  setDuplicateFormData({ ...duplicateFormData, name: e.target.value })
+                }
+                placeholder="e.g., Data Structures (Copy)"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dup-course-code">Course Code</Label>
+              <Input
+                id="dup-course-code"
+                type="text"
+                required
+                value={duplicateFormData.code}
+                onChange={(e) =>
+                  setDuplicateFormData({ ...duplicateFormData, code: e.target.value })
+                }
+                placeholder="e.g., CSE201-COPY"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dup-semester">Semester</Label>
+              <select
+                id="dup-semester"
+                value={duplicateFormData.semester}
+                onChange={(e) =>
+                  setDuplicateFormData({ ...duplicateFormData, semester: e.target.value })
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="Spring">Spring</option>
+                <option value="Summer">Summer</option>
+                <option value="Fall">Fall</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dup-year">Year</Label>
+              <Input
+                id="dup-year"
+                type="number"
+                required
+                min="2000"
+                max="2100"
+                value={duplicateFormData.year}
+                onChange={(e) =>
+                  setDuplicateFormData({ ...duplicateFormData, year: parseInt(e.target.value) })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dup-course-type">Course Type</Label>
+              <select
+                id="dup-course-type"
+                value={duplicateFormData.courseType}
+                onChange={(e) =>
+                  setDuplicateFormData({ ...duplicateFormData, courseType: e.target.value as 'Theory' | 'Lab' })
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="Theory">Theory Course</option>
+                <option value="Lab">Lab Course</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                {duplicateFormData.courseType === 'Theory' 
+                  ? '📖 Theory courses include Midterm and Final exams with CO breakdown'
+                  : '🔬 Lab courses include Lab Final and OEL/CE Project'}
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDuplicateModal(false);
+                  setDuplicatingCourse(null);
+                  setError('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={duplicating}>
+                {duplicating ? (
                   <>
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Importing...
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Duplicating...
                   </>
                 ) : (
-                  'Import Course'
+                  'Duplicate Course'
                 )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
